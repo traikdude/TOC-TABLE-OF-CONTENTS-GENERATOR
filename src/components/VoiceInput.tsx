@@ -109,21 +109,9 @@ export function VoiceInput({ onTranscript, className }: VoiceInputProps) {
         }
       };
 
-      // Query service URL dynamically from server if running in GAS environment
+      // Deployed web app (sandboxed iframe) -> Open the popup voice.html helper page directly from GitHub to bypass permission block 📣✨
       if (typeof (window as any).google?.script?.run !== 'undefined') {
-        (window as any).google.script.run
-          .withSuccessHandler((url: string) => {
-            if (url) {
-              openPopup(url + '?page=voice');
-            } else {
-              openPopup('https://raw.githack.com/traikdude/TOC-TABLE-OF-CONTENTS-GENERATOR/main/public/voice.html');
-            }
-          })
-          .withFailureHandler((err: any) => {
-            console.error('Failed to get script service URL:', err);
-            openPopup('https://raw.githack.com/traikdude/TOC-TABLE-OF-CONTENTS-GENERATOR/main/public/voice.html');
-          })
-          .getServiceUrl();
+        openPopup('https://raw.githack.com/traikdude/TOC-TABLE-OF-CONTENTS-GENERATOR/main/public/voice.html');
       } else {
         openPopup('/voice.html');
       }
