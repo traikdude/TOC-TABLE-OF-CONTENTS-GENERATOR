@@ -1,0 +1,40 @@
+name: Continuous Integration & Deployment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Codebase
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 📦 Install Workspace Dependencies
+      run: npm ci
+      
+    - name: 🔍 ESLint Validation Check
+      run: npm run lint
+      
+    - name: 🔐 Configure Google Clasp Credentials
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: echo "$CLASPRC_JSON" > ~/.clasprc.json
+      env:
+        CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        
+    - name: 🚀 Push Source to Google Apps Script
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: clasp push --force
+      
+    - name: 🌐 Deploy Production Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: clasp deploy --description "Automated Release $(date +'%Y-%m-%d %H:%M:%S')"

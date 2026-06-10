@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎙️ Voice Input Helper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0b1329;
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --border-color: rgba(37, 99, 235, 0.3);
+      --text-color: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-color: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 15px;
+      background-image: 
+        radial-gradient(circle at 50% 30%, rgba(37, 99, 235, 0.1) 0%, transparent 60%),
+        radial-gradient(circle at 10% 90%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      text-align: center;
+      max-width: 320px;
+      line-height: 1.4;
+    }
+
+    .container {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 20px;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+    }
+
+    .mic-button {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none;
+      outline: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .mic-button:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .mic-button:active {
+      transform: scale(0.96);
+    }
+
+    .mic-button.listening {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      animation: pulse 1.5s infinite;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
+    }
+
+    .mic-icon {
+      width: 28px;
+      height: 28px;
+      fill: #ffffff;
+    }
+
+    .mic-button.listening .mic-icon {
+      fill: #ffffff;
+      animation: wiggle 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 18px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    @keyframes wiggle {
+      0% { transform: rotate(-4deg); }
+      100% { transform: rotate(4deg); }
+    }
+
+    .status-text {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-color);
+      margin-bottom: 12px;
+      min-height: 18px;
+      text-align: center;
+    }
+
+    .status-text.listening {
+      color: #ef4444;
+    }
+
+    .transcript-box {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 70px;
+      max-height: 100px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #d1d5db;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .placeholder-text {
+      color: #4b5563;
+      font-style: italic;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-color);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.95;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Diagnostic Console Panel */
+    .console-panel {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: 9px;
+      color: #38bdf8;
+      text-align: left;
+      max-height: 60px;
+      overflow-y: auto;
+    }
+
+    .console-line {
+      margin-bottom: 2px;
+      word-break: break-all;
+    }
+
+    .console-err { color: #ef4444; }
+    .console-success { color: #4ade80; }
+
+    /* Soundwaves animation */
+    .soundwaves {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 20px;
+      margin-bottom: 8px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .soundwaves.active { opacity: 1; }
+
+    .bar {
+      width: 3px;
+      height: 4px;
+      background-color: #2563eb;
+      border-radius: 2px;
+      animation: bounce 0.6s ease-in-out infinite alternate;
+    }
+
+    .bar:nth-child(2) { animation-delay: 0.1s; }
+    .bar:nth-child(3) { animation-delay: 0.2s; }
+    .bar:nth-child(4) { animation-delay: 0.3s; }
+    .bar:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0% { height: 4px; }
+      100% { height: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎙️ Voice Dictation</h1>
+  <p class="subtitle">Click the mic, speak your notes, and click Send. The text will stream directly into the app!</p>
+
+  <div class="container">
+    <div class="soundwaves" id="waves">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+
+    <button class="mic-button" id="micBtn" title="Start listening">
+      <svg class="mic-icon" viewBox="0 0 24 24">
+        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+      </svg>
+    </button>
+
+    <div class="status-text" id="statusText">Ready to record</div>
+
+    <div class="transcript-box" id="transcriptBox">
+      <span class="placeholder-text">Your live dictation preview will appear here...</span>
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-secondary" id="clearBtn" disabled>🗑️ Clear</button>
+      <button class="btn btn-primary" id="sendBtn" disabled>⚡ Send to App</button>
+    </div>
+
+    <!-- Diagnostic Log Console -->
+    <div class="console-panel" id="consolePanel">
+      <div class="console-line">[System] Initializing speech engine...</div>
+    </div>
+  </div>
+
+  <script>
+    const micBtn = document.getElementById('micBtn');
+    const statusText = document.getElementById('statusText');
+    const transcriptBox = document.getElementById('transcriptBox');
+    const waves = document.getElementById('waves');
+    const clearBtn = document.getElementById('clearBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const consolePanel = document.getElementById('consolePanel');
+
+    let recognition = null;
+    let isListening = false;
+    let finalTranscript = '';
+
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      line.className = 'console-line';
+      if (type === 'error') line.classList.add('console-err');
+      if (type === 'success') line.classList.add('console-success');
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      consolePanel.appendChild(line);
+      consolePanel.scrollTop = consolePanel.scrollHeight;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      log('SpeechRecognition supported! Web speech API detected.', 'success');
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isListening = true;
+        micBtn.classList.add('listening');
+        statusText.classList.add('listening');
+        statusText.textContent = 'Listening... Speak now';
+        waves.classList.add('active');
+        log('Speech recording engine started.', 'success');
+      };
+
+      recognition.onaudiostart = () => log('Audio capture started (mic is receiving sound).');
+      recognition.onsoundstart = () => log('Sound detected in input stream.');
+      recognition.onspeechstart = () => log('Speech detected.');
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+            log(`Final chunk: "${event.results[i][0].transcript}"`);
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        
+        const displayedText = (finalTranscript + interimTranscript).trim();
+        if (displayedText) {
+          transcriptBox.innerHTML = `<span>${displayedText}</span>`;
+          clearBtn.disabled = false;
+          sendBtn.disabled = false;
+        } else {
+          transcriptBox.innerHTML = '<span class="placeholder-text">Your live dictation preview will appear here...</span>';
+          clearBtn.disabled = true;
+          sendBtn.disabled = true;
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech error:', event.error);
+        log(`Speech engine error: ${event.error}`, 'error');
+        if (event.error === 'not-allowed') {
+          statusText.textContent = '❌ Mic access denied';
+        } else {
+          statusText.textContent = `❌ Error: ${event.error}`;
+        }
+        stopListening();
+      };
+
+      recognition.onend = () => {
+        log('Speech recording engine ended.');
+        stopListening();
+      };
+    } else {
+      statusText.textContent = '❌ Speech Recognition not supported';
+      log('Speech Recognition is NOT supported in this browser.', 'error');
+      micBtn.disabled = true;
+    }
+
+    function startListening() {
+      if (!recognition) return;
+      finalTranscript = '';
+      try {
+        log('Starting speech engine...');
+        recognition.start();
+      } catch (err) {
+        log(`Start failed: ${err.message}`, 'error');
+        console.error(err);
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      micBtn.classList.remove('listening');
+      statusText.classList.remove('listening');
+      statusText.textContent = 'Recording stopped';
+      waves.classList.remove('active');
+    }
+
+    micBtn.addEventListener('click', () => {
+      if (isListening) {
+        log('Stop button clicked.');
+        recognition.stop();
+      } else {
+        log('Mic button clicked.');
+        startListening();
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      finalTranscript = '';
+      transcriptBox.innerHTML = '<span class="placeholder-text">Your live dictation preview will appear here...</span>';
+      clearBtn.disabled = true;
+      sendBtn.disabled = true;
+      statusText.textContent = 'Ready to record';
+      log('Cleared dictation buffer.');
+    });
+
+    sendBtn.addEventListener('click', () => {
+      const textToSend = transcriptBox.innerText.trim();
+      if (textToSend && window.opener) {
+        window.opener.postMessage({ type: 'SPEECH_RESULT', transcript: textToSend }, '*');
+        statusText.textContent = '✅ Transmitted successfully!';
+        log('Transmitted transcript to app!', 'success');
+        setTimeout(() => {
+          window.close();
+        }, 800);
+      } else if (!window.opener) {
+        statusText.textContent = '⚠️ Parent window not found';
+        log('Transmission failed: window.opener is missing.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

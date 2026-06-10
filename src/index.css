@@ -1,0 +1,225 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --breakpoint-xs: 30rem;
+
+  --color-neon-cyan:    #22d3ee;
+  --color-neon-pink:    #f43f5e;
+  --color-neon-amber:   #2563eb;
+  --color-neon-emerald: #10b981;
+  --color-neon-purple:  #a855f7;
+  --color-neon-blue:    #3b82f6;
+
+  --animate-fade-in-up:  fade-in-up 0.4s ease-out forwards;
+  --animate-slide-down:  slide-down 0.3s ease-out forwards;
+  --animate-bounce-in:   bounce-in  0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  --animate-wiggle:      wiggle     0.4s ease-in-out;
+  --animate-shimmer:     shimmer    1.5s infinite linear;
+  --animate-pulse-slow:  pulse      3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  @keyframes bounce-in {
+    0%   { opacity: 0; transform: scale(0.85); }
+    60%  { transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1);    }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50%       { transform: rotate(3deg);  }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-500 font-sans;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 40%);
+  }
+
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 40%);
+  }
+}
+
+@layer utilities {
+  .joy-card {
+    @apply bg-white/80 border border-slate-200/80 shadow-sm rounded-2xl transition-all duration-300 backdrop-blur-sm;
+  }
+  .joy-card:hover {
+    @apply shadow-md border-slate-300;
+  }
+  .dark .joy-card {
+    @apply bg-slate-900/40 border-slate-800/80 shadow-[0_4px_20px_rgba(0,0,0,0.3)] backdrop-blur-md;
+  }
+  .dark .joy-card:hover {
+    @apply border-slate-700/60 shadow-[0_10px_35px_rgba(0,0,0,0.5)];
+  }
+
+  /* 💎 Premium Glassmorphic Card */
+  .glass-card {
+    @apply bg-white/70 border border-slate-200/80 shadow-sm rounded-2xl transition-all duration-300 backdrop-blur-md;
+  }
+  .glass-card:hover {
+    @apply border-slate-300 shadow-md;
+  }
+  .dark .glass-card {
+    @apply bg-slate-900/50 border-slate-800 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-lg;
+  }
+  .dark .glass-card:hover {
+    @apply border-slate-700/80 shadow-[0_12px_40px_rgba(0,0,0,0.6)];
+  }
+
+  .joy-input {
+    @apply bg-white border border-slate-200 rounded-xl outline-none
+           focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20
+           transition-all duration-200 text-slate-800 placeholder-slate-400;
+  }
+  .dark .joy-input {
+    @apply bg-slate-950/60 border-slate-800 text-slate-100 placeholder-slate-600
+           focus:border-blue-600 focus:ring-2 focus:ring-blue-600/25;
+  }
+
+  .joy-btn-primary {
+    @apply bg-blue-600 text-white font-bold rounded-xl px-5 py-2.5
+           hover:bg-blue-700 active:scale-95 transition-all duration-150
+           shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .dark .joy-btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 text-white font-extrabold
+           hover:from-blue-400 hover:to-blue-500 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]
+           active:scale-95 transition-all duration-150;
+  }
+
+  .joy-btn-ghost {
+    @apply text-slate-600 font-semibold rounded-xl px-3 py-1.5
+           hover:bg-slate-100 hover:text-slate-900 transition-all duration-150;
+  }
+  .dark .joy-btn-ghost {
+    @apply text-slate-400 hover:bg-slate-800 hover:text-slate-100;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ✨ Shimmer loading skeleton */
+  .shimmer {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% auto;
+    animation: shimmer 1.5s infinite linear;
+  }
+  .dark .shimmer {
+    background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%);
+    background-size: 200% auto;
+    animation: shimmer 1.5s infinite linear;
+  }
+
+  .markdown-body {
+    @apply text-slate-600 text-sm leading-relaxed;
+  }
+  .dark .markdown-body {
+    @apply text-slate-300;
+  }
+  
+  .markdown-body h2 {
+    @apply text-base font-bold mt-6 mb-3 pb-1.5 border-b border-slate-100 text-slate-800;
+  }
+  .dark .markdown-body h2 {
+    @apply text-slate-100 border-slate-800;
+  }
+
+  .markdown-body ul {
+    @apply mb-3.5 list-none pl-0;
+  }
+  .markdown-body li {
+    @apply flex items-start gap-2 mb-1.5;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 📱 Mobile scrollbar helper */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-200/50 rounded-full hover:bg-slate-300;
+  }
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 rounded-full hover:bg-slate-700;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+
+/* 🎨 Google Keep Light and Dark Color Card Theme Overrides */
+.keep-card-red { background-color: #f28b82; border-color: #f28b82; }
+.keep-card-orange { background-color: #fbbc04; border-color: #fbbc04; }
+.keep-card-yellow { background-color: #fff475; border-color: #fff475; }
+.keep-card-green { background-color: #ccff90; border-color: #ccff90; }
+.keep-card-teal { background-color: #a7ffeb; border-color: #a7ffeb; }
+.keep-card-blue { background-color: #cbf0f8; border-color: #cbf0f8; }
+.keep-card-purple { background-color: #d7aefb; border-color: #d7aefb; }
+.keep-card-pink { background-color: #fdcfe8; border-color: #fdcfe8; }
+.keep-card-brown { background-color: #e6c9a8; border-color: #e6c9a8; }
+.keep-card-gray { background-color: #e8eaed; border-color: #e8eaed; }
+.keep-card-white { background-color: #ffffff; border-color: #e2e8f0; }
+
+.dark .keep-card-red { background-color: #5c2b29; border-color: #5c2b29; }
+.dark .keep-card-orange { background-color: #614a19; border-color: #614a19; }
+.dark .keep-card-yellow { background-color: #635d19; border-color: #635d19; }
+.dark .keep-card-green { background-color: #345920; border-color: #345920; }
+.dark .keep-card-teal { background-color: #16504b; border-color: #16504b; }
+.dark .keep-card-blue { background-color: #2d555e; border-color: #2d555e; }
+.dark .keep-card-purple { background-color: #42275e; border-color: #42275e; }
+.dark .keep-card-pink { background-color: #5b2245; border-color: #5b2245; }
+.dark .keep-card-brown { background-color: #442f19; border-color: #442f19; }
+.dark .keep-card-gray { background-color: #3c4043; border-color: #3c4043; }
+.dark .keep-card-white { background-color: #202124; border-color: #3c4043; }
