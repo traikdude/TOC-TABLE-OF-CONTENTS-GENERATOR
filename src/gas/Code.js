@@ -483,11 +483,43 @@ function parseAndApplyFormatting(paragraph) {
  * Triggers authorization consent dialogs.
  */
 function forceAuth() {
-  console.log('🔑 [forceAuth] Script is fully authorized! 🔑✨');
-  if (false) {
-    DocumentApp.create('TOC Auth Consent');
+  console.log('🔑 [forceAuth] Entry points diagnostic execution initiated. 🔑✨');
+  try {
+    DocumentApp.getActiveDocument();
     DriveApp.getRootFolder();
-    UrlFetchApp.fetch('https://generativelanguage.googleapis.com');
+    UrlFetchApp.fetch('https://generativelanguage.googleapis.com', { muteHttpExceptions: true });
+    console.log('✅ [forceAuth] All services successfully executed without authorization errors. 🎉');
+  } catch (err) {
+    console.warn('⚠️ [forceAuth] Diagnostic warning (expected if no key/endpoints):', err.message);
+  }
+}
+
+/**
+ * Naked execution function to bypass the try-catch block and force the Google Apps Script IDE 
+ * to display the "Review Permissions" authorization prompt for DriveApp and UrlFetchApp.
+ * Select this function from the dropdown in the script editor and click "Run". 🔌⚡
+ */
+function forceAuthorizeNaked() {
+  console.log('🔌 [forceAuthorizeNaked] Triggering naked service calls to force OAuth consent... 🔌✨');
+  var doc = DocumentApp.getActiveDocument();
+  var folder = DriveApp.getRootFolder();
+  var response = UrlFetchApp.fetch('https://generativelanguage.googleapis.com', { muteHttpExceptions: true });
+  console.log('✅ [forceAuthorizeNaked] Success! Response Code:', response.getResponseCode());
+}
+
+/**
+ * Creates a custom menu in the Google Doc when opened. 🛠️✨
+ */
+function onOpen() {
+  try {
+    DocumentApp.getUi().createMenu('📜 TOC Styler')
+      .addItem('🖥️ Open Sidebar', 'showSidebar')
+      .addItem('🔑 Authorize Services (diagnostic)', 'forceAuth')
+      .addItem('🔌 Force Authorization Prompt (naked)', 'forceAuthorizeNaked')
+      .addToUi();
+    console.log('✅ [onOpen] Custom menu created successfully. 📜✨');
+  } catch (error) {
+    console.error('🚨 [onOpen] Error creating menu:', error.message);
   }
 }
 
