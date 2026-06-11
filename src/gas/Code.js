@@ -73,8 +73,8 @@ function doGet(e) {
   
   // Auto-initialize the script property with the active Gemini key if it is not set
   var currentKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  var targetKey = 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw';
-  if (!currentKey || currentKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ') {
+  var targetKey = 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c';
+  if (!currentKey || currentKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || currentKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw') {
     PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', targetKey);
     console.log('🔑 [doGet] Auto-updated GEMINI_API_KEY script property. 🔑✨');
   }
@@ -108,15 +108,37 @@ function doGet(e) {
 // ─────────────────────────────────────────────
 
 /**
- * Reads the text content of the active Google Doc to send to the frontend. 📄👀
+ * Reads the text content of a specified Google Doc (or active/parent doc as fallback) to send to the frontend. 📄👀
+ * @param {string} docIdOrUrl Optional specific document ID or URL to open.
  * @returns {Object} Plain text content, title, and current headings list.
  */
-function getActiveDocText() {
-  console.log('📄 [getActiveDocText] Reading document contents. 📄👀');
+function getActiveDocText(docIdOrUrl) {
+  console.log('📄 [getActiveDocText] Reading document contents. 📄👀 params:', docIdOrUrl);
   try {
-    var doc = DocumentApp.getActiveDocument();
+    var doc = null;
+    
+    if (docIdOrUrl && docIdOrUrl.trim() !== '') {
+      var id = extractDocId(docIdOrUrl);
+      if (id) {
+        doc = DocumentApp.openById(id);
+      } else {
+        return { error: 'Invalid Google Doc URL or ID format. 🛑' };
+      }
+    }
+    
     if (!doc) {
-      return { error: 'No active document found. Please open the script from inside a Google Doc. 🛑' };
+      doc = DocumentApp.getActiveDocument();
+    }
+    
+    if (!doc) {
+      // Standalone web app fallback to the bound script's parent
+      var parentId = '1OLFFJrD_sxsgJ8gZIfQjQS3ts0LfTh8CyV5GfOzNhck';
+      try {
+        doc = DocumentApp.openById(parentId);
+        console.log('📄 [getActiveDocText] Fallback to parent doc ID successful.');
+      } catch (e) {
+        return { error: 'No active document and fallback parent doc is inaccessible. Please open inside Google Doc or paste a valid Doc URL. 🛑' };
+      }
     }
     
     var body = doc.getBody();
@@ -153,6 +175,24 @@ function getActiveDocText() {
 }
 
 /**
+ * Extracts Google Doc ID from a URL or raw ID string.
+ */
+function extractDocId(urlOrId) {
+  if (!urlOrId) return null;
+  urlOrId = urlOrId.trim();
+  // Regex to match doc ID from URL
+  var match = urlOrId.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  // If no URL format, check if it looks like a clean ID
+  if (/^[a-zA-Z0-9-_]{25,}$/.test(urlOrId)) {
+    return urlOrId;
+  }
+  return null;
+}
+
+/**
  * Re-formats and writes the structured section hierarchy back to the active Google Doc. 🧠🛡️
  * Adds internal bookmarks, builds the TOC, and injects "Back to Top" links. 🔝⛓️
  * @param {Array} sections Array of section objects: [{ title, level, content, color, labels }]
@@ -168,7 +208,6 @@ function writeStructuredDoc(sections, options) {
     return { error: 'No active document found. 🚨' };
   }
   
-  var body = doc.getBody();
   var lock = LockService.getDocumentLock();
   var hasLock = false;
   
@@ -184,174 +223,9 @@ function writeStructuredDoc(sections, options) {
       bookmarks[b].remove();
     }
     
-    // Clear the document body content safely without throwing "Can't remove last paragraph" exception
-    var numChildren = body.getNumChildren();
-    for (var c = numChildren - 1; c > 0; c--) {
-      body.removeChild(body.getChild(c));
-    }
-    var firstChild = body.getChild(0);
-    var tempPara;
-    if (firstChild.getType() === DocumentApp.ElementType.PARAGRAPH) {
-      tempPara = firstChild.asParagraph();
-      tempPara.setText('');
-    } else {
-      tempPara = body.insertParagraph(0, '');
-      body.removeChild(firstChild);
-    }
-    tempPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+    writeSectionsToDoc(doc, sections, options);
     
-    var headingsMeta = [];
-    var docUrl = doc.getUrl();
-    
-    // Step 1: Insert Table of Contents Placeholder at the top
-    var tocHeader = body.appendParagraph('TABLE OF CONTENTS');
-    tocHeader.setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    tocHeader.editAsText().setBold(true);
-    
-    var tocTopPosition = doc.newPosition(tocHeader, 0);
-    var tocTopBookmark = doc.addBookmark(tocTopPosition);
-    var tocTopBookmarkId = tocTopBookmark ? tocTopBookmark.getId() : null;
-    
-    // Create an empty body paragraph separator
-    var separatorPara = body.appendParagraph('─────────────────────────────────────');
-    separatorPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-    
-    // Step 2: Loop and write outline sections
-    var sectionCounters = [0, 0, 0, 0, 0, 0]; // Track nested section numbers
-    
-    for (var s = 0; s < sections.length; s++) {
-      var sec = sections[s];
-      var level = parseInt(sec.level || 0);
-      var titleText = (sec.title || '').trim();
-      var contentText = (sec.content || '').trim();
-      
-      if (!titleText && !contentText) continue;
-      
-      var headingPara = null;
-      if (level >= 1 && level <= 6) {
-        // Apply professional section numbering if requested
-        if (options.applyNumbering) {
-          sectionCounters[level - 1]++;
-          for (var cl = level; cl < 6; cl++) {
-            sectionCounters[cl] = 0; // Reset deeper levels
-          }
-          var numberingStr = sectionCounters.slice(0, level).join('.') + '. ';
-          titleText = numberingStr + titleText;
-        }
-        
-        // Append section heading paragraph
-        headingPara = body.appendParagraph(titleText);
-        var headingType = getHeadingTypeFromLevel(level);
-        headingPara.setHeading(headingType);
-        
-        // Strip any external links on headings
-        headingPara.editAsText().setLinkUrl(null);
-        
-        // Insert bookmark anchor on the heading paragraph
-        var headingPos = doc.newPosition(headingPara, 0);
-        var headingBookmark = doc.addBookmark(headingPos);
-        var bookmarkId = headingBookmark ? headingBookmark.getId() : null;
-        
-        if (bookmarkId) {
-          headingsMeta.push({
-            text: titleText,
-            level: level,
-            bookmarkId: bookmarkId
-          });
-        }
-      } else if (titleText) {
-        var normalTitle = body.appendParagraph(titleText);
-        normalTitle.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-        normalTitle.editAsText().setBold(true);
-      }
-      
-      // Write section body text (markdown-like parsing)
-      if (contentText) {
-        var lines = contentText.split('\n');
-        for (var l = 0; l < lines.length; l++) {
-          var line = lines[l].trim();
-          if (!line) continue;
-          
-          var bodyPara = null;
-          // Checklist item
-          if (line.indexOf('☐ ') === 0 || line.indexOf('[ ] ') === 0) {
-            var itemText = line.substring(line.indexOf(' ') + 1);
-            bodyPara = body.appendListItem(itemText);
-            bodyPara.setGlyphType(DocumentApp.GlyphType.SQUARE_BULLET);
-          } 
-          // Bullet point
-          else if (line.indexOf('- ') === 0 || line.indexOf('* ') === 0) {
-            var bulletText = line.substring(2);
-            bodyPara = body.appendListItem(bulletText);
-            bodyPara.setGlyphType(DocumentApp.GlyphType.BULLET);
-          } 
-          // Numbered point
-          else if (/^\d+[\.\)]\s/.test(line)) {
-            var numText = line.replace(/^\d+[\.\)]\s/, '');
-            bodyPara = body.appendListItem(numText);
-            bodyPara.setGlyphType(DocumentApp.GlyphType.NUMBERED);
-          } 
-          // Normal paragraph
-          else {
-            bodyPara = body.appendParagraph(line);
-            bodyPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-          }
-          
-          // Basic inline markdown bold parser **text**
-          if (bodyPara) {
-            parseAndApplyFormatting(bodyPara);
-          }
-        }
-      }
-      
-      // Step 3: Insert "Back to Top" links right-aligned after H1/H2 sections
-      if (level === 1 || level === 2) {
-        if (tocTopBookmarkId) {
-          var backToTop = body.appendParagraph('▲ Back to Top');
-          backToTop.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-          backToTop.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-          backToTop.editAsText().setLinkUrl(0, 12, docUrl + '#bookmark=' + tocTopBookmarkId);
-          backToTop.editAsText().setFontSize(10).setItalic(true).setForegroundColor('#54575b');
-        }
-      }
-    }
-    
-    // Clear the initial empty paragraph that was used to keep body alive if still present
-    if (tempPara.getText() === '' && body.getNumChildren() > 2) {
-      body.removeChild(tempPara);
-    }
-    
-    // Step 4: Write Table of Contents items linking to bookmarks
-    if (headingsMeta.length > 0) {
-      var tocIndex = body.getChildIndex(separatorPara);
-      for (var h = 0; h < headingsMeta.length; h++) {
-        var meta = headingsMeta[h];
-        var indent = '';
-        for (var k = 1; k < meta.level; k++) {
-          indent += '    ';
-        }
-        var entryLine = indent + meta.text;
-        var tocEntry = body.insertParagraph(tocIndex, entryLine);
-        tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-        
-        var linkUrl = docUrl + '#bookmark=' + meta.bookmarkId;
-        tocEntry.editAsText().setLinkUrl(0, entryLine.length - 1, linkUrl);
-        tocIndex++;
-      }
-    }
-    
-    // Append a final Back to Top link at the very end of the document
-    if (tocTopBookmarkId) {
-      var finalBackToTop = body.appendParagraph('▲ Back to Top');
-      finalBackToTop.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-      finalBackToTop.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-      finalBackToTop.editAsText().setLinkUrl(0, 12, docUrl + '#bookmark=' + tocTopBookmarkId);
-      finalBackToTop.editAsText().setFontSize(10).setItalic(true).setForegroundColor('#54575b');
-    }
-    
-    doc.saveAndClose();
-    console.log('✅ [writeStructuredDoc] Outline written successfully! 🏆✨');
-    return { success: true, url: docUrl, count: headingsMeta.length };
+    return { success: true, url: doc.getUrl(), count: sections.length };
     
   } catch (err) {
     console.error('🚨 [writeStructuredDoc] Error writing:', err.message);
@@ -359,6 +233,356 @@ function writeStructuredDoc(sections, options) {
   } finally {
     if (hasLock) {
       lock.releaseLock();
+    }
+  }
+}
+
+/**
+ * Creates a new Google Doc inside the specified folder and writes the structured content to it. 📂📄
+ * Folder URL: https://drive.google.com/drive/folders/1Ivm9x5foCn6athVRA-9xB3FugIjTEjS6
+ * @param {Array} sections Outline sections.
+ * @param {string} title Document title.
+ * @param {Object} options Options.
+ * @returns {Object} Success flag and URL.
+ */
+function exportToNewDoc(sections, title, options) {
+  console.log('📂 [exportToNewDoc] Exporting outline to new Google Doc. 📂✨');
+  sections = sections || [];
+  options = options || {};
+  
+  var lock = LockService.getDocumentLock();
+  var hasLock = false;
+  
+  try {
+    hasLock = lock.tryLock(30000);
+    if (!hasLock) {
+      throw new Error('Lock acquisition timeout: Document lock is currently busy.');
+    }
+    
+    // 1. Create a new Google Doc
+    var doc = DocumentApp.create(title || 'Structured Outline');
+    var docId = doc.getId();
+    var docUrl = doc.getUrl();
+    
+    // 2. Locate the target folder in Google Drive
+    var folderId = '1Ivm9x5foCn6athVRA-9xB3FugIjTEjS6';
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      var file = DriveApp.getFileById(docId);
+      
+      // Add file to target folder
+      folder.addFile(file);
+      // Remove file from root folder
+      DriveApp.getRootFolder().removeFile(file);
+      console.log('📂 [exportToNewDoc] Moved file to folder: ' + folderId + ' 📂✨');
+    } catch (driveErr) {
+      console.error('⚠️ [exportToNewDoc] Drive movement error:', driveErr.message);
+    }
+    
+    // 3. Write structured contents to the new document
+    writeSectionsToDoc(doc, sections, options);
+    
+    return { success: true, url: docUrl, count: sections.length };
+    
+  } catch (err) {
+    console.error('🚨 [exportToNewDoc] Error:', err.message);
+    return { error: err.message };
+  } finally {
+    if (hasLock) {
+      lock.releaseLock();
+    }
+  }
+}
+
+/**
+ * Core helper that clears and writes sections to any document.
+ */
+function writeSectionsToDoc(doc, sections, options) {
+  var body = doc.getBody();
+  
+  // Clear the document body content safely without throwing "Can't remove last paragraph" exception
+  var numChildren = body.getNumChildren();
+  for (var c = numChildren - 1; c > 0; c--) {
+    body.removeChild(body.getChild(c));
+  }
+  var firstChild = body.getChild(0);
+  var tempPara;
+  if (firstChild.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    tempPara = firstChild.asParagraph();
+    tempPara.setText('');
+  } else {
+    tempPara = body.insertParagraph(0, '');
+    body.removeChild(firstChild);
+  }
+  tempPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  
+  var headingsMeta = [];
+  var docUrl = doc.getUrl();
+  
+  // Step 1: Insert Table of Contents Placeholder at the top
+  var tocHeader = body.appendParagraph('TABLE OF CONTENTS');
+  tocHeader.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  tocHeader.editAsText().setBold(true);
+  
+  var tocTopPosition = doc.newPosition(tocHeader, 0);
+  var tocTopBookmark = doc.addBookmark(tocTopPosition);
+  var tocTopBookmarkId = tocTopBookmark ? tocTopBookmark.getId() : null;
+  
+  // Create an empty body paragraph separator
+  var separatorPara = body.appendParagraph('─────────────────────────────────────');
+  separatorPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  
+  // Step 2: Loop and write outline sections
+  var sectionCounters = [0, 0, 0, 0, 0, 0]; // Track nested section numbers
+  
+  for (var s = 0; s < sections.length; s++) {
+    var sec = sections[s];
+    var level = parseInt(sec.level || 0);
+    var titleText = (sec.title || '').trim();
+    var contentText = (sec.content || '').trim();
+    
+    if (!titleText && !contentText) continue;
+    
+    var headingPara = null;
+    if (level >= 1 && level <= 6) {
+      // Apply professional section numbering if requested
+      if (options.applyNumbering) {
+        sectionCounters[level - 1]++;
+        for (var cl = level; cl < 6; cl++) {
+          sectionCounters[cl] = 0; // Reset deeper levels
+        }
+        var numberingStr = sectionCounters.slice(0, level).join('.') + '. ';
+        titleText = numberingStr + titleText;
+      }
+      
+      // Append section heading paragraph
+      headingPara = body.appendParagraph(titleText);
+      var headingType = getHeadingTypeFromLevel(level);
+      headingPara.setHeading(headingType);
+      
+      // Strip any external links on headings
+      headingPara.editAsText().setLinkUrl(null);
+      
+      // Insert bookmark anchor on the heading paragraph
+      var headingPos = doc.newPosition(headingPara, 0);
+      var headingBookmark = doc.addBookmark(headingPos);
+      var bookmarkId = headingBookmark ? headingBookmark.getId() : null;
+      
+      if (bookmarkId) {
+        headingsMeta.push({
+          text: titleText,
+          level: level,
+          bookmarkId: bookmarkId
+        });
+      }
+    } else if (titleText) {
+      var normalTitle = body.appendParagraph(titleText);
+      normalTitle.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+      normalTitle.editAsText().setBold(true);
+    }
+    
+    // Write section body text (markdown-like parsing)
+    if (contentText) {
+      var lines = contentText.split('\n');
+      for (var l = 0; l < lines.length; l++) {
+        var line = lines[l].trim();
+        if (!line) continue;
+        
+        var bodyPara = null;
+        // Checklist item
+        if (line.indexOf('☐ ') === 0 || line.indexOf('[ ] ') === 0) {
+          var itemText = line.substring(line.indexOf(' ') + 1);
+          bodyPara = body.appendListItem(itemText);
+          bodyPara.setGlyphType(DocumentApp.GlyphType.SQUARE_BULLET);
+        } 
+        // Bullet point
+        else if (line.indexOf('- ') === 0 || line.indexOf('* ') === 0) {
+          var bulletText = line.substring(2);
+          bodyPara = body.appendListItem(bulletText);
+          bodyPara.setGlyphType(DocumentApp.GlyphType.BULLET);
+        } 
+        // Numbered point
+        else if (/^\d+[\.\)]\s/.test(line)) {
+          var numText = line.replace(/^\d+[\.\)]\s/, '');
+          bodyPara = body.appendListItem(numText);
+          bodyPara.setGlyphType(DocumentApp.GlyphType.NUMBERED);
+        } 
+        // Normal paragraph
+        else {
+          bodyPara = body.appendParagraph(line);
+          bodyPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+        }
+        
+        // Basic inline markdown bold parser **text**
+        if (bodyPara) {
+          parseAndApplyFormatting(bodyPara);
+        }
+      }
+    }
+    
+    // Step 3: Insert "Back to Top" links right-aligned after H1/H2 sections
+    if (level === 1 || level === 2) {
+      if (tocTopBookmarkId) {
+        var backToTop = body.appendParagraph('▲ Back to Top');
+        backToTop.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+        backToTop.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+        backToTop.editAsText().setLinkUrl(0, 12, docUrl + '#bookmark=' + tocTopBookmarkId);
+        backToTop.editAsText().setFontSize(10).setItalic(true).setForegroundColor('#54575b');
+      }
+    }
+  }
+  
+  // Clear the initial empty paragraph that was used to keep body alive if still present
+  if (tempPara.getText() === '' && body.getNumChildren() > 2) {
+    body.removeChild(tempPara);
+  }
+  
+  // Step 4: Write Table of Contents items linking to bookmarks
+  if (headingsMeta.length > 0) {
+    var tocIndex = body.getChildIndex(separatorPara);
+    for (var h = 0; h < headingsMeta.length; h++) {
+      var meta = headingsMeta[h];
+      var indent = '';
+      for (var k = 1; k < meta.level; k++) {
+        indent += '    ';
+      }
+      var entryLine = indent + meta.text;
+      var tocEntry = body.insertParagraph(tocIndex, entryLine);
+      tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+      
+      var linkUrl = docUrl + '#bookmark=' + meta.bookmarkId;
+      tocEntry.editAsText().setLinkUrl(0, entryLine.length - 1, linkUrl);
+      tocIndex++;
+    }
+  }
+  
+  // Append a final Back to Top link at the very end of the document
+  if (tocTopBookmarkId) {
+    var finalBackToTop = body.appendParagraph('▲ Back to Top');
+    finalBackToTop.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+    finalBackToTop.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+    finalBackToTop.editAsText().setLinkUrl(0, 12, docUrl + '#bookmark=' + tocTopBookmarkId);
+    finalBackToTop.editAsText().setFontSize(10).setItalic(true).setForegroundColor('#54575b');
+  }
+}
+
+/**
+ * Scans the active document and builds a dynamic, bookmark-linked Table of Contents at the top. 📜⛓️
+ * @returns {string} Status message.
+ */
+function generateTOC() {
+  var doc = DocumentApp.getActiveDocument();
+  if (!doc) {
+    throw new Error('No active document found.');
+  }
+  var body = doc.getBody();
+  
+  var lock = LockService.getDocumentLock();
+  var hasLock = false;
+  try {
+    hasLock = lock.tryLock(30000);
+    if (!hasLock) {
+      throw new Error('Lock acquisition timeout: Document is currently busy.');
+    }
+    
+    var numChildren = body.getNumChildren();
+    var headings = [];
+    
+    // Collect headings and assign bookmarks
+    for (var i = 0; i < numChildren; i++) {
+      var child = body.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var para = child.asParagraph();
+        var headingType = para.getHeading();
+        var level = getLevelFromHeadingType(headingType);
+        
+        if (level >= 1 && level <= 6) {
+          var text = para.getText().trim();
+          if (text.length > 0 && text.toUpperCase() !== 'TABLE OF CONTENTS') {
+            var position = doc.newPosition(para, 0);
+            var bookmark = doc.addBookmark(position);
+            if (bookmark) {
+              headings.push({
+                text: text,
+                level: level,
+                bookmarkId: bookmark.getId()
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    if (headings.length === 0) {
+      return 'Execution cancelled: No headings (Heading 1-6) were detected in the document.';
+    }
+    
+    // Remove existing TOC section and old orphans
+    removeTOCSection(body);
+    
+    // Insert the fresh Table of Contents section at the top
+    var tocHeader = body.insertParagraph(0, 'TABLE OF CONTENTS');
+    tocHeader.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    tocHeader.editAsText().setBold(true);
+    
+    var insertIndex = 1;
+    var docUrl = doc.getUrl();
+    
+    for (var j = 0; j < headings.length; j++) {
+      var h = headings[j];
+      var indent = '';
+      for (var k = 1; k < h.level; k++) {
+        indent += '    ';
+      }
+      var entryText = indent + h.text;
+      var tocEntry = body.insertParagraph(insertIndex, entryText);
+      tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+      
+      var bookmarkUrl = docUrl + '#bookmark=' + h.bookmarkId;
+      tocEntry.editAsText().setLinkUrl(0, entryText.length - 1, bookmarkUrl);
+      insertIndex++;
+    }
+    
+    var separator = body.insertParagraph(insertIndex, '─────────────────────────────────────');
+    separator.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+    
+    doc.saveAndClose();
+    return 'Success: TOC successfully compiled with ' + headings.length + ' entries.';
+    
+  } catch (error) {
+    console.error('Critical Error in generateTOC execution:', error.message);
+    throw new Error(error.message);
+  } finally {
+    if (hasLock) {
+      lock.releaseLock();
+    }
+  }
+}
+
+/**
+ * Automatically removes any previously generated TOC structure.
+ */
+function removeTOCSection(body) {
+  var numChildren = body.getNumChildren();
+  var startIndex = -1;
+  var endIndex = -1;
+  
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var text = child.asParagraph().getText().trim();
+      if (text.toUpperCase() === 'TABLE OF CONTENTS') {
+        startIndex = i;
+      } else if (text === '─────────────────────────────────────' && startIndex !== -1) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+  
+  if (startIndex !== -1 && endIndex !== -1) {
+    for (var j = endIndex; j >= startIndex; j--) {
+      body.removeChild(body.getChild(j));
     }
   }
 }
@@ -514,6 +738,7 @@ function onOpen() {
   try {
     DocumentApp.getUi().createMenu('📜 TOC Styler')
       .addItem('🖥️ Open Sidebar', 'showSidebar')
+      .addItem('🔄 Generate / Refresh TOC', 'generateTOC')
       .addItem('🔑 Authorize Services (diagnostic)', 'forceAuth')
       .addItem('🔌 Force Authorization Prompt (naked)', 'forceAuthorizeNaked')
       .addToUi();

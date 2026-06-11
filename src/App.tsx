@@ -59,11 +59,13 @@ export default function App() {
   
   // Doc Sync/Write states
   const [isExportingDoc, setIsExportingDoc] = useState(false);
+  const [isExportingNewDoc, setIsExportingNewDoc] = useState(false);
   const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
   // Import State
   const [isImporting, setIsImporting] = useState(false);
+  const [docSource, setDocSource] = useState('');
 
   // Presets State
   const [activePreset, setActivePreset] = useState<'smart' | 'expert' | 'training'>('smart');
@@ -225,7 +227,7 @@ export default function App() {
     }
   }, [activePreset, input]);
 
-  const handleImportDoc = async (isAuto = false) => {
+  const handleImportDoc = async (isAuto = false, sourceOverride?: string) => {
     // Check window.google.script.run directly in the condition to avoid compiler optimization issues 🔌✨
     if (typeof window === 'undefined' || !(window as any).google?.script?.run) {
       if (!isAuto) {
@@ -237,6 +239,8 @@ export default function App() {
     setIsImporting(true);
     setError('');
     
+    const sourceVal = sourceOverride !== undefined ? sourceOverride : docSource;
+
     try {
       const result = await new Promise<any>((resolve, reject) => {
         (window as any).google.script.run
@@ -245,7 +249,7 @@ export default function App() {
             else resolve(response);
           })
           .withFailureHandler((err: any) => reject(new Error(err?.message || 'Failed to import document.')))
-          .getActiveDocText();
+          .getActiveDocText(sourceVal);
       });
 
       if (result && result.text) {
@@ -391,6 +395,58 @@ export default function App() {
       setExportError(err?.message || 'Failed to update Google Doc.');
     } finally {
       setIsExportingDoc(false);
+    }
+  };
+
+  const handleExportToNewDoc = async () => {
+    const activeSecs = sections.filter(s => s.isSelected);
+    if (activeSecs.length === 0) return;
+    
+    const runsNative = typeof window !== 'undefined' && (window as any).google?.script?.run;
+    if (!runsNative) {
+      setExportError('Exporting to a new document requires running inside Google Apps Script environment. 🔌');
+      return;
+    }
+
+    setIsExportingNewDoc(true);
+    setExportError(null);
+    setExportedDocUrl(null);
+
+    // Grab first heading title or fall back to default
+    const firstHeading = activeSecs.find(s => s.level > 0)?.title || 'Structured Outline';
+    const docTitle = `TOC Outline - ${firstHeading}`;
+
+    try {
+      const result = await new Promise<any>((resolve, reject) => {
+        (window as any).google.script.run
+          .withSuccessHandler((response: any) => {
+            if (response && response.error) {
+              reject(new Error(response.error));
+            } else {
+              resolve(response);
+            }
+          })
+          .withFailureHandler((err: any) => {
+            reject(new Error(err?.message || 'Apps Script export transaction failed.'));
+          })
+          .exportToNewDoc(activeSecs, docTitle, {
+            applyNumbering: applyNumbering,
+            refineLanguage: refineLanguage
+          });
+      });
+
+      if (result && result.success) {
+        setExportedDocUrl(result.url);
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          colors: ['#10b981', '#34d399']
+        });
+      }
+    } catch (err: any) {
+      setExportError(err?.message || 'Failed to export to new Google Doc.');
+    } finally {
+      setIsExportingNewDoc(false);
     }
   };
 
@@ -544,6 +600,28 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {/* Added: Google Doc Custom Source Input */}
+            {(typeof window !== 'undefined' && (window as any).google?.script?.run) && (
+              <div className="flex gap-2 items-center bg-slate-50 dark:bg-slate-950/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <input
+                  type="text"
+                  value={docSource}
+                  onChange={(e) => setDocSource(e.target.value)}
+                  placeholder="Paste Google Doc URL or ID (optional)"
+                  className="flex-1 bg-transparent border-none outline-none text-[10.5px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 px-1"
+                />
+                <button
+                  onClick={() => handleImportDoc(false)}
+                  disabled={isImporting}
+                  className="px-2.5 py-1 text-[10px] font-black bg-blue-650 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
+                >
+                  {isImporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileUp className="w-3 h-3" />}
+                  <span>Import</span>
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               {EXAMPLES.map((ex, i) => (
                 <button
@@ -1003,16 +1081,26 @@ export default function App() {
                 {/* Final document formatting trigger */}
                 {typeof window !== 'undefined' && (window as any).google?.script?.run && (
                   <div className="mt-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm text-center animate-slide-down">
-                    <button
-                      onClick={handleApplyToDoc}
-                      disabled={isExportingDoc}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                    >
-                      {isExportingDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      <span>Format & Generate Table of Contents ⚡</span>
-                    </button>
-                    <p className="text-[10px] text-slate-455 dark:text-slate-500 mt-2">
-                      Clears current document and writes structured outline entries, bookmarks, and Table of Contents navigation. 📄🔌
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        onClick={handleApplyToDoc}
+                        disabled={isExportingDoc || isExportingNewDoc}
+                        className="flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                      >
+                        {isExportingDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        <span>Format Active Doc ⚡</span>
+                      </button>
+                      <button
+                        onClick={handleExportToNewDoc}
+                        disabled={isExportingDoc || isExportingNewDoc}
+                        className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                      >
+                        {isExportingNewDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
+                        <span>Export to New Doc 📂</span>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-455 dark:text-slate-500 mt-2.5">
+                      <strong>Format Active Doc</strong> clears the currently bound document. <strong>Export to New Doc</strong> creates a new file in your specified Drive folder. 📁🔌
                     </p>
                   </div>
                 )}
