@@ -668,7 +668,7 @@ export default function App() {
                   value={docSource}
                   onChange={(e) => setDocSource(e.target.value)}
                   placeholder="Paste Google Doc URL or ID (optional)"
-                  className="flex-1 bg-transparent border-none outline-none text-[10.5px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 px-1"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-[10.5px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 px-1"
                 />
                 <button
                   onClick={() => handleImportDoc(false)}
@@ -703,8 +703,8 @@ export default function App() {
                   type="password"
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="Enter Gemini API Key (starts with AIzaSy)"
-                  className="flex-1 bg-transparent border-none outline-none text-[10.5px] text-slate-850 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-650 px-1"
+                  placeholder="Gemini API Key (AIzaSy...)"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-[10.5px] text-slate-850 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-650 px-1"
                 />
                 <button
                   onClick={handleSaveApiKey}
