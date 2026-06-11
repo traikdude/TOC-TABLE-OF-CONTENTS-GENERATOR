@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Loader2, Copy, Check, ArrowRight, AlertCircle, 
   Moon, Sun, Trash2, Edit3, 
-  Sparkles, ExternalLink, ClipboardCheck, Undo, Redo, Plus, FileUp, List
+  Sparkles, ExternalLink, ClipboardCheck, Undo, Redo, Plus, FileUp, List, Key
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { processDocumentStream, GeminiApiError } from './services/gemini';
@@ -63,6 +63,11 @@ export default function App() {
   const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
   const [isNewDocExport, setIsNewDocExport] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Gemini API Key setting UI states
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [keySaveStatus, setKeySaveStatus] = useState<string | null>(null);
 
   // Import State
   const [isImporting, setIsImporting] = useState(false);
@@ -454,6 +459,34 @@ export default function App() {
     }
   };
 
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim() || apiKeyInput.trim().indexOf('AIzaSy') !== 0) {
+      setKeySaveStatus('Error: Invalid key format. Must start with "AIzaSy". 🛑');
+      return;
+    }
+    setIsSavingKey(true);
+    setKeySaveStatus(null);
+    try {
+      const result = await new Promise<any>((resolve, reject) => {
+        (window as any).google.script.run
+          .withSuccessHandler((response: any) => {
+            if (response && response.error) reject(new Error(response.error));
+            else resolve(response);
+          })
+          .withFailureHandler((err: any) => reject(new Error(err?.message || 'Failed to save key.')))
+          .setGeminiApiKey(apiKeyInput.trim());
+      });
+      if (result && result.success) {
+        setKeySaveStatus('Gemini API Key saved successfully to Script Properties! 🔑🎉');
+        setApiKeyInput('');
+      }
+    } catch (err: any) {
+      setKeySaveStatus(`Error: ${err.message || err} 🛑`);
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setSections(prev => prev.map(s => s.id === id ? { ...s, isSelected: !s.isSelected } : s));
   };
@@ -638,6 +671,35 @@ export default function App() {
               ))}
             </div>
           </div>
+
+          {/* Secure Gemini API Key Settings Card */}
+          {(typeof window !== 'undefined' && (window as any).google?.script?.run) && (
+            <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-450 dark:text-slate-500">🔑 Gemini API Key Settings</span>
+              <div className="flex gap-2 items-center bg-slate-50 dark:bg-slate-950/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="Enter Gemini API Key (starts with AIzaSy)"
+                  className="flex-1 bg-transparent border-none outline-none text-[10.5px] text-slate-850 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-650 px-1"
+                />
+                <button
+                  onClick={handleSaveApiKey}
+                  disabled={isSavingKey || !apiKeyInput.trim()}
+                  className="px-2.5 py-1 text-[10px] font-black bg-blue-650 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
+                >
+                  {isSavingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : <Key className="w-3 h-3" />}
+                  <span>Save</span>
+                </button>
+              </div>
+              {keySaveStatus && (
+                <span className={`text-[9.5px] font-bold ${keySaveStatus.includes('Error') ? 'text-red-500' : 'text-emerald-500'}`}>
+                  {keySaveStatus}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Large text area editor card */}
           <div className="flex-1 relative rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/10 overflow-hidden flex flex-col min-h-[300px]">

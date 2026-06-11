@@ -75,12 +75,10 @@ function doGet(e) {
     }
   }
   
-  // Auto-initialize the script property with the active Gemini key if it is not set
+  // Verify if Gemini API key is configured
   var currentKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  var targetKey = 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c';
-  if (!currentKey || currentKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || currentKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw') {
-    PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', targetKey);
-    console.log('🔑 [doGet] Auto-updated GEMINI_API_KEY script property. 🔑✨');
+  if (!currentKey || currentKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || currentKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw' || currentKey === 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c') {
+    console.warn('🔑 [doGet] GEMINI_API_KEY script property is not configured or is using a leaked/revoked key.');
   }
 
   // Auto-configure Drive permissions to avoid session conflicts
@@ -655,9 +653,9 @@ function removeTOCSection(body) {
 function queryGemini(modelName, contents, systemInstruction) {
   console.log('🧠 [queryGemini] Sending payload to Gemini. Model:', modelName);
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) {
-    console.error('🚨 [queryGemini] GEMINI_API_KEY script property not configured.');
-    return { error: 'Gemini API key is not configured in Script Properties.' };
+  if (!apiKey || apiKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || apiKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw' || apiKey === 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c') {
+    console.error('🚨 [queryGemini] GEMINI_API_KEY script property not configured or using a revoked key.');
+    return { error: 'Gemini API key is not configured or has been revoked/blocked. Please enter a new active Gemini API key using the Settings panel in the Web App UI. 🔌🔑' };
   }
   
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
@@ -823,4 +821,24 @@ function getServiceUrl() {
     console.error('🚨 [getServiceUrl] Error:', err.message);
     return '';
   }
+}
+
+/**
+ * Saves a new Gemini API key to Script Properties securely. 🔑💾
+ */
+function setGeminiApiKey(key) {
+  console.log('🔑 [setGeminiApiKey] Updating API key.');
+  if (key && key.trim().indexOf('AIzaSy') === 0) {
+    PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key.trim());
+    return { success: true };
+  }
+  return { error: 'Invalid API key format. Must start with AIzaSy. 🛑' };
+}
+
+/**
+ * Checks if the Gemini API key is configured. 🔑🔍
+ */
+function isApiKeyConfigured() {
+  var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  return !!key && key.length > 10;
 }
