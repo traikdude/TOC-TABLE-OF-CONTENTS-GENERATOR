@@ -343,6 +343,11 @@ function writeSectionsToDoc(doc, sections, options) {
     
     if (!titleText && !contentText) continue;
     
+    // Ensure titleText is not empty if it is being written as a heading or paragraph
+    if (!titleText && contentText) {
+      titleText = '(Untitled Section)';
+    }
+    
     var headingPara = null;
     if (level >= 1 && level <= 6) {
       // Apply professional section numbering if requested
@@ -451,7 +456,9 @@ function writeSectionsToDoc(doc, sections, options) {
       tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
       
       var linkUrl = docUrl + '#bookmark=' + meta.bookmarkId;
-      tocEntry.editAsText().setLinkUrl(0, entryLine.length - 1, linkUrl);
+      if (entryLine.length > 0) {
+        tocEntry.editAsText().setLinkUrl(0, entryLine.length - 1, linkUrl);
+      }
       tocIndex++;
     }
   }
@@ -539,7 +546,9 @@ function generateTOC() {
       tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
       
       var bookmarkUrl = docUrl + '#bookmark=' + h.bookmarkId;
-      tocEntry.editAsText().setLinkUrl(0, entryText.length - 1, bookmarkUrl);
+      if (entryText.length > 0) {
+        tocEntry.editAsText().setLinkUrl(0, entryText.length - 1, bookmarkUrl);
+      }
       insertIndex++;
     }
     
@@ -686,6 +695,12 @@ function parseAndApplyFormatting(paragraph) {
     if (start === -1) break;
     var end = text.indexOf('**', start + 2);
     if (end === -1) break;
+    
+    // Check if deleting the asterisks would leave the text completely empty
+    if (text.length <= 4 && start === 0 && end === text.length - 2) {
+      paragraph.setText(' ');
+      break;
+    }
     
     // Remove the asterisks and set bold
     paragraph.editAsText().deleteText(end, end + 1);

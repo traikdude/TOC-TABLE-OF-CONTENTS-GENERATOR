@@ -61,6 +61,7 @@ export default function App() {
   const [isExportingDoc, setIsExportingDoc] = useState(false);
   const [isExportingNewDoc, setIsExportingNewDoc] = useState(false);
   const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
+  const [isNewDocExport, setIsNewDocExport] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   // Import State
@@ -286,6 +287,7 @@ export default function App() {
     resetSections([]);
     setStreamingContent('');
     setExportedDocUrl(null);
+    setIsNewDocExport(false);
     setExportError(null);
 
     try {
@@ -363,6 +365,7 @@ export default function App() {
     setIsExportingDoc(true);
     setExportError(null);
     setExportedDocUrl(null);
+    setIsNewDocExport(false);
 
     try {
       const result = await new Promise<any>((resolve, reject) => {
@@ -411,6 +414,7 @@ export default function App() {
     setIsExportingNewDoc(true);
     setExportError(null);
     setExportedDocUrl(null);
+    setIsNewDocExport(true);
 
     // Grab first heading title or fall back to default
     const firstHeading = activeSecs.find(s => s.level > 0)?.title || 'Structured Outline';
@@ -847,17 +851,34 @@ export default function App() {
             <div className="flex items-center justify-between gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold animate-slide-down">
               <span className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Google Doc formatted successfully! Outline & TOC applied.</span>
+                <span>
+                  {isNewDocExport 
+                    ? "Doc created inside folder! Outline & TOC applied." 
+                    : "Google Doc formatted successfully! Outline & TOC applied."}
+                </span>
               </span>
-              <a 
-                href={exportedDocUrl} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[10px] shrink-0 shadow-sm"
-              >
-                <span>Open Document</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              <div className="flex items-center gap-2 shrink-0">
+                <a 
+                  href={exportedDocUrl} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[10px] shadow-sm"
+                >
+                  <span>Open Document</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                {isNewDocExport && (
+                  <a 
+                    href="https://drive.google.com/drive/folders/1Ivm9x5foCn6athVRA-9xB3FugIjTEjS6" 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1 rounded-lg text-[10px] shadow-sm"
+                  >
+                    <span>Open Folder 📂</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
             </div>
           )}
 
