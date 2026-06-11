@@ -22,7 +22,11 @@ function showSidebar() {
     console.log('✅ [showSidebar] Sidebar loaded successfully. 🖥️✨');
   } catch (error) {
     console.error('🚨 [showSidebar] Error loading sidebar:', error.message);
-    DocumentApp.getUi().alert('Error loading sidebar: ' + error.message);
+    try {
+      DocumentApp.getUi().alert('Error loading sidebar: ' + error.message);
+    } catch (uiErr) {
+      console.warn('⚠️ [showSidebar] UI alert skipped (expected in standalone mode):', uiErr.message);
+    }
   }
 }
 
@@ -120,25 +124,51 @@ function getActiveDocText(docIdOrUrl) {
     if (docIdOrUrl && docIdOrUrl.trim() !== '') {
       var id = extractDocId(docIdOrUrl);
       if (id) {
-        doc = DocumentApp.openById(id);
+        try {
+          doc = DocumentApp.openById(id);
+        } catch (openErr) {
+          return { error: 'Inaccessible Google Document ID/URL: ' + openErr.message + ' 🛑' };
+        }
       } else {
         return { error: 'Invalid Google Doc URL or ID format. 🛑' };
       }
     }
     
+    // Check if we are running in a container document context
     if (!doc) {
-      doc = DocumentApp.getActiveDocument();
+      try {
+        doc = DocumentApp.getActiveDocument();
+      } catch (activeErr) {
+        console.warn('⚠️ [getActiveDocText] Container document not accessible:', activeErr.message);
+      }
     }
     
+    // Fallback to legacy parent doc if in container mode, but don't crash if inaccessible
     if (!doc) {
-      // Standalone web app fallback to the bound script's parent
       var parentId = '1OLFFJrD_sxsgJ8gZIfQjQS3ts0LfTh8CyV5GfOzNhck';
       try {
         doc = DocumentApp.openById(parentId);
         console.log('📄 [getActiveDocText] Fallback to parent doc ID successful.');
       } catch (e) {
-        return { error: 'No active document and fallback parent doc is inaccessible. Please open inside Google Doc or paste a valid Doc URL. 🛑' };
+        console.warn('⚠️ [getActiveDocText] Fallback parent doc is inaccessible.');
+        return { 
+          text: '', 
+          title: 'New Document', 
+          headings: [], 
+          url: '',
+          warning: 'Standalone Web App Mode: Please paste a Google Doc URL to import, or click Export to generate a new document. 💡'
+        };
       }
+    }
+    
+    if (!doc) {
+      return { 
+        text: '', 
+        title: 'New Document', 
+        headings: [], 
+        url: '',
+        warning: 'No document active. Paste a URL or use example outlines. 💡'
+      };
     }
     
     var body = doc.getBody();
@@ -203,12 +233,21 @@ function writeStructuredDoc(sections, options) {
   console.log('🧠 [writeStructuredDoc] Writing outline back to Doc. 🧠✨');
   sections = sections || [];
   options = options || {};
-  var doc = DocumentApp.getActiveDocument();
-  if (!doc) {
-    return { error: 'No active document found. 🚨' };
+  
+  var doc = null;
+  try {
+    doc = DocumentApp.getActiveDocument();
+  } catch (err) {
+    console.warn('⚠️ [writeStructuredDoc] Active document not accessible:', err.message);
   }
   
-  var lock = LockService.getDocumentLock();
+  // If running standalone without container doc, automatically redirect to new document export
+  if (!doc) {
+    console.log('💡 [writeStructuredDoc] Standalone mode: Redirecting to create a new document.');
+    return exportToNewDoc(sections, 'TOC Outline - Auto Generated', options);
+  }
+  
+  var lock = LockService.getDocumentLock() || LockService.getScriptLock();
   var hasLock = false;
   
   try {
@@ -218,9 +257,13 @@ function writeStructuredDoc(sections, options) {
     }
     
     // Clear all existing bookmarks before rebuilding them
-    var bookmarks = doc.getBookmarks();
-    for (var b = bookmarks.length - 1; b >= 0; b--) {
-      bookmarks[b].remove();
+    try {
+      var bookmarks = doc.getBookmarks();
+      for (var b = bookmarks.length - 1; b >= 0; b--) {
+        bookmarks[b].remove();
+      }
+    } catch (bookmarkErr) {
+      console.warn('⚠️ [writeStructuredDoc] Bookmark clearing skipped:', bookmarkErr.message);
     }
     
     writeSectionsToDoc(doc, sections, options);
@@ -250,7 +293,7 @@ function exportToNewDoc(sections, title, options) {
   sections = sections || [];
   options = options || {};
   
-  var lock = LockService.getDocumentLock();
+  var lock = LockService.getDocumentLock() || LockService.getScriptLock();
   var hasLock = false;
   
   try {
@@ -478,13 +521,19 @@ function writeSectionsToDoc(doc, sections, options) {
  * @returns {string} Status message.
  */
 function generateTOC() {
-  var doc = DocumentApp.getActiveDocument();
+  var doc = null;
+  try {
+    doc = DocumentApp.getActiveDocument();
+  } catch (err) {
+    console.warn('⚠️ [generateTOC] Active document not accessible:', err.message);
+  }
+  
   if (!doc) {
-    throw new Error('No active document found.');
+    throw new Error('No active document found. Please open this from inside a Google Doc to compile its Table of Contents.');
   }
   var body = doc.getBody();
   
-  var lock = LockService.getDocumentLock();
+  var lock = LockService.getDocumentLock() || LockService.getScriptLock();
   var hasLock = false;
   try {
     hasLock = lock.tryLock(30000);
