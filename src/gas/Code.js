@@ -77,20 +77,8 @@ function doGet(e) {
   
   // Verify if Gemini API key is configured
   var currentKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!currentKey || currentKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || currentKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw' || currentKey === 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c') {
-    console.warn('🔑 [doGet] GEMINI_API_KEY script property is not configured or is using a leaked/revoked key.');
-  }
-
-  // Auto-configure Drive permissions to avoid session conflicts
-  try {
-    var file = DriveApp.getFileById(ScriptApp.getScriptId());
-    var access = file.getSharingAccess();
-    if (access !== DriveApp.Access.ANYONE && access !== DriveApp.Access.ANYONE_WITH_LINK) {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      console.log('🌐 [doGet] Configured script sharing to ANYONE_WITH_LINK. 🌐✨');
-    }
-  } catch (driveErr) {
-    console.warn('⚠️ [doGet] Drive sharing configuration skipped:', driveErr.message);
+  if (!currentKey) {
+    console.warn('🔑 [doGet] GEMINI_API_KEY script property is not configured.');
   }
 
   try {
@@ -110,97 +98,15 @@ function doGet(e) {
 // ─────────────────────────────────────────────
 
 /**
- * Reads the text content of a specified Google Doc (or active/parent doc as fallback) to send to the frontend. 📄👀
+ * Reads document text and structure using tab-aware v4.2 reader.
  * @param {string} docIdOrUrl Optional specific document ID or URL to open.
- * @returns {Object} Plain text content, title, and current headings list.
+ * @param {Object=} options Optional settings like allTabs, targetTabId.
+ * @returns {Object} Content, title, headings, and tab metadata.
  */
-function getActiveDocText(docIdOrUrl) {
-  console.log('📄 [getActiveDocText] Reading document contents. 📄👀 params:', docIdOrUrl);
-  try {
-    var doc = null;
-    
-    if (docIdOrUrl && docIdOrUrl.trim() !== '') {
-      var id = extractDocId(docIdOrUrl);
-      if (id) {
-        try {
-          doc = DocumentApp.openById(id);
-        } catch (openErr) {
-          return { error: 'Inaccessible Google Document ID/URL: ' + openErr.message + ' 🛑' };
-        }
-      } else {
-        return { error: 'Invalid Google Doc URL or ID format. 🛑' };
-      }
-    }
-    
-    // Check if we are running in a container document context
-    if (!doc) {
-      try {
-        doc = DocumentApp.getActiveDocument();
-      } catch (activeErr) {
-        console.warn('⚠️ [getActiveDocText] Container document not accessible:', activeErr.message);
-      }
-    }
-    
-    // Fallback to legacy parent doc if in container mode, but don't crash if inaccessible
-    if (!doc) {
-      var parentId = '1OLFFJrD_sxsgJ8gZIfQjQS3ts0LfTh8CyV5GfOzNhck';
-      try {
-        doc = DocumentApp.openById(parentId);
-        console.log('📄 [getActiveDocText] Fallback to parent doc ID successful.');
-      } catch (e) {
-        console.warn('⚠️ [getActiveDocText] Fallback parent doc is inaccessible.');
-        return { 
-          text: '', 
-          title: 'New Document', 
-          headings: [], 
-          url: '',
-          warning: 'Standalone Web App Mode: Please paste a Google Doc URL to import, or click Export to generate a new document. 💡'
-        };
-      }
-    }
-    
-    if (!doc) {
-      return { 
-        text: '', 
-        title: 'New Document', 
-        headings: [], 
-        url: '',
-        warning: 'No document active. Paste a URL or use example outlines. 💡'
-      };
-    }
-    
-    var body = doc.getBody();
-    var text = body.getText();
-    var docName = doc.getName();
-    
-    // Scan existing headings
-    var headings = [];
-    var numChildren = body.getNumChildren();
-    for (var i = 0; i < numChildren; i++) {
-      var child = body.getChild(i);
-      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
-        var p = child.asParagraph();
-        var headingType = p.getHeading();
-        if (headingType !== DocumentApp.ParagraphHeading.NORMAL && headingType !== DocumentApp.ParagraphHeading.SUBTITLE) {
-          headings.push({
-            text: p.getText().trim(),
-            level: getLevelFromHeadingType(headingType)
-          });
-        }
-      }
-    }
-    
-    return {
-      title: docName,
-      text: text,
-      headings: headings,
-      url: doc.getUrl()
-    };
-  } catch (err) {
-    console.error('🚨 [getActiveDocText] Error:', err.message);
-    return { error: err.message };
-  }
+function getActiveDocText(docIdOrUrl, options) {
+  return getActiveDocTextV42(docIdOrUrl, options);
 }
+
 
 /**
  * Extracts Google Doc ID from a URL or raw ID string.
@@ -254,19 +160,14 @@ function writeStructuredDoc(sections, options) {
       throw new Error('Lock acquisition timeout: Document is currently being edited. ⏳🚨');
     }
     
-    // Clear all existing bookmarks before rebuilding them
-    try {
-      var bookmarks = doc.getBookmarks();
-      for (var b = bookmarks.length - 1; b >= 0; b--) {
-        bookmarks[b].remove();
-      }
-    } catch (bookmarkErr) {
-      console.warn('⚠️ [writeStructuredDoc] Bookmark clearing skipped:', bookmarkErr.message);
-    }
+    var navReport = writeSectionsToDoc(doc, sections, options);
     
-    writeSectionsToDoc(doc, sections, options);
-    
-    return { success: true, url: doc.getUrl(), count: sections.length };
+    return {
+      success: !!(navReport && navReport.success),
+      url: doc.getUrl(),
+      count: sections.length,
+      navigation: navReport
+    };
     
   } catch (err) {
     console.error('🚨 [writeStructuredDoc] Error writing:', err.message);
@@ -321,9 +222,14 @@ function exportToNewDoc(sections, title, options) {
     }
     
     // 3. Write structured contents to the new document
-    writeSectionsToDoc(doc, sections, options);
+    var navReport = writeSectionsToDoc(doc, sections, options);
     
-    return { success: true, url: docUrl, count: sections.length };
+    return {
+      success: !!(navReport && navReport.success),
+      url: docUrl,
+      count: sections.length,
+      navigation: navReport
+    };
     
   } catch (err) {
     console.error('🚨 [exportToNewDoc] Error:', err.message);
@@ -512,107 +418,47 @@ function writeSectionsToDoc(doc, sections, options) {
     finalBackToTop.editAsText().setLinkUrl(0, 12, docUrl + '#bookmark=' + tocTopBookmarkId);
     finalBackToTop.editAsText().setFontSize(10).setItalic(true).setForegroundColor('#54575b');
   }
+
+  const navReport = rebuildNavigationForDocumentV42(doc, {
+    forceToc: true,
+    scope: 'active-tab',
+    reciprocal: true,
+    backToTop: true,
+    maxDepth: 6,
+    presentation: 'P3',
+
+    // writeStructuredDoc/exportToNewDoc already hold the outer lock.
+    skipLock: true,
+
+    // Do not close the Document object out from under the caller.
+    closeDocument: false
+  });
+
+  return navReport;
 }
 
 /**
- * Scans the active document and builds a dynamic, bookmark-linked Table of Contents at the top. 📜⛓️
+ * Scans the active document and builds an exact, tab-aware reciprocal Table of Contents. 📜⛓️
  * @returns {string} Status message.
  */
 function generateTOC() {
-  var doc = null;
-  try {
-    doc = DocumentApp.getActiveDocument();
-  } catch (err) {
-    console.warn('⚠️ [generateTOC] Active document not accessible:', err.message);
+  const report = generateTOCV42({
+    forceToc: true,
+    scope: 'active-tab',
+    reciprocal: true,
+    backToTop: true,
+    maxDepth: 6,
+    presentation: 'P3'
+  });
+
+  if (!report.success) {
+    throw new Error(
+      'TOC rebuild did not fully verify. Status: ' + report.navigationStatus
+    );
   }
-  
-  if (!doc) {
-    throw new Error('No active document found. Please open this from inside a Google Doc to compile its Table of Contents.');
-  }
-  var body = doc.getBody();
-  
-  var lock = LockService.getDocumentLock() || LockService.getScriptLock();
-  var hasLock = false;
-  try {
-    hasLock = lock.tryLock(30000);
-    if (!hasLock) {
-      throw new Error('Lock acquisition timeout: Document is currently busy.');
-    }
-    
-    var numChildren = body.getNumChildren();
-    var headings = [];
-    
-    // Collect headings and assign bookmarks
-    for (var i = 0; i < numChildren; i++) {
-      var child = body.getChild(i);
-      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
-        var para = child.asParagraph();
-        var headingType = para.getHeading();
-        var level = getLevelFromHeadingType(headingType);
-        
-        if (level >= 1 && level <= 6) {
-          var text = para.getText().trim();
-          if (text.length > 0 && text.toUpperCase() !== 'TABLE OF CONTENTS') {
-            var position = doc.newPosition(para, 0);
-            var bookmark = doc.addBookmark(position);
-            if (bookmark) {
-              headings.push({
-                text: text,
-                level: level,
-                bookmarkId: bookmark.getId()
-              });
-            }
-          }
-        }
-      }
-    }
-    
-    if (headings.length === 0) {
-      return 'Execution cancelled: No headings (Heading 1-6) were detected in the document.';
-    }
-    
-    // Remove existing TOC section and old orphans
-    removeTOCSection(body);
-    
-    // Insert the fresh Table of Contents section at the top
-    var tocHeader = body.insertParagraph(0, 'TABLE OF CONTENTS');
-    tocHeader.setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    tocHeader.editAsText().setBold(true);
-    
-    var insertIndex = 1;
-    var docUrl = doc.getUrl();
-    
-    for (var j = 0; j < headings.length; j++) {
-      var h = headings[j];
-      var indent = '';
-      for (var k = 1; k < h.level; k++) {
-        indent += '    ';
-      }
-      var entryText = indent + h.text;
-      var tocEntry = body.insertParagraph(insertIndex, entryText);
-      tocEntry.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-      
-      var bookmarkUrl = docUrl + '#bookmark=' + h.bookmarkId;
-      if (entryText.length > 0) {
-        tocEntry.editAsText().setLinkUrl(0, entryText.length - 1, bookmarkUrl);
-      }
-      insertIndex++;
-    }
-    
-    var separator = body.insertParagraph(insertIndex, '─────────────────────────────────────');
-    separator.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-    
-    doc.saveAndClose();
-    return 'Success: TOC successfully compiled with ' + headings.length + ' entries.';
-    
-  } catch (error) {
-    console.error('Critical Error in generateTOC execution:', error.message);
-    throw new Error(error.message);
-  } finally {
-    if (hasLock) {
-      lock.releaseLock();
-    }
-  }
+
+  return 'Success: ' + report.pairCount +
+    ' reciprocal TOC pairs. ' + report.navigationStatus;
 }
 
 /**
@@ -648,63 +494,33 @@ function removeTOCSection(body) {
 // ─────────────────────────────────────────────
 
 /**
- * Server-side UrlFetchApp proxy for calling the Gemini API to bypass CORS. 🧠🔌
+ * Server-side proxy for calling the Gemini API to bypass CORS, delegating to hardened GeminiProxyV42. 🧠🔌
  */
 function queryGemini(modelName, contents, systemInstruction) {
-  console.log('🧠 [queryGemini] Sending payload to Gemini. Model:', modelName);
-  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey || apiKey === 'AIzaSyD_vJWvMEYj2EqCTew5NBP9vkTmoJNNDyQ' || apiKey === 'AIzaSyANsx2ywXXN56IoiJw2WONFVg_0Xt7EPOw' || apiKey === 'AIzaSyCRpIL-o5PTPzkDetXmh1HPZTFnl1H3U3c') {
-    console.error('🚨 [queryGemini] GEMINI_API_KEY script property not configured or using a revoked key.');
-    return { error: 'Gemini API key is not configured or has been revoked/blocked. Please enter a new active Gemini API key using the Settings panel in the Web App UI. 🔌🔑' };
-  }
-  
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
-  var payload = {
-    contents: contents,
-    generationConfig: {
-      temperature: 1.0,
-      maxOutputTokens: 8192
-    }
-  };
-  
-  if (systemInstruction) {
-    payload.systemInstruction = {
-      parts: [{ text: systemInstruction }]
-    };
-  }
-  
-  try {
-    var response = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    
-    var code = response.getResponseCode();
-    var responseText = response.getContentText();
-    console.log('🧠 [queryGemini] Response code:', code, 'Length:', responseText.length);
-    
-    if (code !== 200) {
-      return { error: 'Gemini API error ' + code + ': ' + responseText };
-    }
-    
-    var json = JSON.parse(responseText);
-    if (!json.candidates || json.candidates.length === 0) {
-      return { error: 'Gemini returned no response candidates.' };
-    }
-    
-    var text = '';
-    if (json.candidates[0].content && json.candidates[0].content.parts) {
-      text = json.candidates[0].content.parts[0].text || '';
-    }
-    
-    return { text: text };
-  } catch (err) {
-    console.error('🚨 [queryGemini] URL fetch failed:', err.message);
-    return { error: err.message };
-  }
+  return queryGeminiV42(modelName, contents, systemInstruction);
 }
+
+/**
+ * Tab-aware working DocumentTab resolver.
+ * @param {GoogleAppsScript.Document.Document} doc
+ * @param {string=} requestedTabId
+ * @returns {GoogleAppsScript.Document.DocumentTab}
+ */
+function getWorkingDocumentTabV42_(doc, requestedTabId) {
+  if (requestedTabId) {
+    return doc.getTab(requestedTabId).asDocumentTab();
+  }
+
+  try {
+    const active = doc.getActiveTab();
+    if (active) return active.asDocumentTab();
+  } catch (error) {
+    // Standalone/openById context can lack a user-active tab.
+  }
+
+  return doc.getTabs()[0].asDocumentTab();
+}
+
 
 // ─────────────────────────────────────────────
 // 🛠️ Helper Functions
@@ -801,6 +617,10 @@ function onOpen() {
     DocumentApp.getUi().createMenu('📜 TOC Styler')
       .addItem('🖥️ Open Sidebar', 'showSidebar')
       .addItem('🔄 Generate / Refresh TOC', 'generateTOC')
+      .addSeparator()
+      .addItem('🧪 Run v4.2 Regression Tests', 'runNavigationV42RegressionTests')
+      .addItem('🔍 Diagnose TOC v4.2', 'diagnoseTOCV42')
+      .addSeparator()
       .addItem('🔑 Authorize Services (diagnostic)', 'forceAuth')
       .addItem('🔌 Force Authorization Prompt (naked)', 'forceAuthorizeNaked')
       .addToUi();
@@ -809,6 +629,7 @@ function onOpen() {
     console.error('🚨 [onOpen] Error creating menu:', error.message);
   }
 }
+
 
 /**
  * Returns the web app service URL. 🔌💻

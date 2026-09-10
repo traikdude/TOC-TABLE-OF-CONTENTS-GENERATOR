@@ -1,0 +1,19 @@
+{
+  "bundle": "TOC Generator v4.2 repair + framework integration",
+  "files": [
+    "TOC_V42_Upgrade_Guide.md",
+    "build-gas.js",
+    "src/constants/systemPrompt.ts",
+    "src/lib/frameworkV42.ts",
+    "src/gas/NavigationV42.js",
+    "src/gas/GeminiProxyV42.js",
+    "src/gas/NavigationV42Tests.js",
+    "src/gas/DocumentIOV42.js"
+  ],
+  "notes": [
+    "NavigationV42.js and GeminiProxyV42.js passed Node syntax checks.",
+    "frameworkV42.ts passed TypeScript noEmit syntax/type checking as a standalone module.",
+    "No live Apps Script project was mutated because the Apps Script connector rejected the project as too large.",
+    "Navigation cleanup scans every document tab so changing from a central all-tabs TOC to an active-tab TOC does not leave stale reverse links in other tabs."
+  ]
+}
