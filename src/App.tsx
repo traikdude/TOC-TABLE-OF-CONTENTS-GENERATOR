@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { processDocumentStream, GeminiApiError } from './services/gemini';
-import { parseOutline } from './lib/outlineEngine';
+import { parseV42Response } from './lib/outlineEngine';
 import type { DocumentSection } from './lib/outlineEngine';
 import { cn, generateOutlinePlainText } from './lib/utils';
 import { useOutlineHistory } from './hooks/useOutlineHistory';
@@ -80,6 +80,9 @@ export default function App() {
   const [navigationScope, setNavigationScope] = useState<'active-tab' | 'all-tabs-central'>('active-tab');
   const [reciprocalNavigation, setReciprocalNavigation] = useState(true);
   const [backToTop, setBackToTop] = useState(true);
+  const [analysisBlock, setAnalysisBlock] = useState<string>('');
+  const [validationReport, setValidationReport] = useState<string>('');
+  const [activeViewTab, setActiveViewTab] = useState<'sections' | 'analysis' | 'validation'>('sections');
 
   // Session History State
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -306,8 +309,14 @@ export default function App() {
       if (!result || result.trim() === '') {
         setError('No structured outline generated. Provide more detailed text. 📝');
       } else {
-        const parsed = parseOutline(result);
+        const v42Data = parseV42Response(result);
+        const parsed = v42Data.sections;
         resetSections(parsed);
+        setAnalysisBlock(v42Data.analysisBlock);
+        setValidationReport(v42Data.validationReport);
+        if (v42Data.analysisBlock || v42Data.validationReport) {
+          setActiveViewTab('sections');
+        }
 
         // Add to history log ⏳✨
         setHistory(prev => {
@@ -1026,9 +1035,92 @@ export default function App() {
                 <div className="w-10 h-10 border-4 border-slate-200 dark:border-slate-800 border-t-blue-600 rounded-full animate-spin"></div>
                 <p className="text-slate-550 dark:text-slate-400 font-semibold text-xs animate-pulse">🧠 Structuring document outlines...</p>
               </div>
-            ) : sections.length > 0 ? (
+            ) : (sections.length > 0 || analysisBlock || validationReport) ? (
               <div className="flex flex-col gap-4">
+                {/* v4.2 Tab Selector (Sections / Analysis / Validation) */}
+                {(analysisBlock || validationReport) && (
+                  <div className="flex items-center gap-1.5 bg-slate-200/70 dark:bg-slate-800/70 p-1 rounded-xl text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setActiveViewTab('sections')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
+                        activeViewTab === 'sections' ? "bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                      )}
+                    >
+                      <span>📄 Structured Sections</span>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-600 rounded-full">{sections.length}</span>
+                    </button>
+                    {analysisBlock && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveViewTab('analysis')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
+                          activeViewTab === 'analysis' ? "bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        )}
+                      >
+                        <span>📊 Analysis Block</span>
+                      </button>
+                    )}
+                    {validationReport && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveViewTab('validation')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
+                          activeViewTab === 'validation' ? "bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        )}
+                      >
+                        <span>✅ Validation Report</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Analysis View */}
+                {activeViewTab === 'analysis' && analysisBlock && (
+                  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                        <span>📊 Architecture & Analysis Block</span>
+                      </span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(analysisBlock)}
+                        className="text-[10px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg"
+                      >
+                        <Copy className="w-3 h-3" /> Copy Analysis
+                      </button>
+                    </div>
+                    <pre className="text-xs text-slate-700 dark:text-slate-200 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 max-h-[500px] overflow-y-auto">
+                      {analysisBlock}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Validation View */}
+                {activeViewTab === 'validation' && validationReport && (
+                  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <span>✅ Validation & Reciprocal Navigation Report</span>
+                      </span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(validationReport)}
+                        className="text-[10px] font-bold text-slate-500 hover:text-emerald-600 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg"
+                      >
+                        <Copy className="w-3 h-3" /> Copy Report
+                      </button>
+                    </div>
+                    <pre className="text-xs text-slate-700 dark:text-slate-200 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 max-h-[500px] overflow-y-auto">
+                      {validationReport}
+                    </pre>
+                  </div>
+                )}
+
                 {/* Outliner Tool Actions */}
+                {activeViewTab === 'sections' && (
+                  <>
                 <div className="flex justify-between items-center mb-1 bg-white/40 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-200/30">
                   <div className="flex items-center gap-2">
                     <button
@@ -1255,6 +1347,8 @@ export default function App() {
                     </p>
                   </div>
                 )}
+                </>
+              )}
               </div>
             ) : (
               /* Onboarding state */

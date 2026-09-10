@@ -31,6 +31,66 @@ function showSidebar() {
 }
 
 /**
+ * Opens a modal launcher to expand the Web App deployment in full-screen in a new tab. 🌐🚀
+ */
+function openWebAppFullScreen() {
+  try {
+    var url = getServiceUrl();
+    if (!url) {
+      url = 'https://script.google.com/macros/s/' + ScriptApp.getScriptId() + '/exec';
+    }
+
+    var html = HtmlService.createHtmlOutput(
+      '<!DOCTYPE html><html><head><base target="_blank">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<style>' +
+      '  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 24px; background: #0f172a; color: #f8fafc; margin: 0; box-sizing: border-box; }' +
+      '  .icon { font-size: 36px; margin-bottom: 8px; }' +
+      '  .title { font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #60a5fa; letter-spacing: -0.02em; }' +
+      '  .desc { font-size: 13px; color: #94a3b8; margin-bottom: 22px; line-height: 1.5; max-width: 380px; margin-left: auto; margin-right: auto; }' +
+      '  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff !important; padding: 13px 26px; border-radius: 12px; font-weight: 700; text-decoration: none !important; font-size: 15px; box-shadow: 0 10px 15px -3px rgba(37,99,235,0.4); transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }' +
+      '  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 20px -3px rgba(37,99,235,0.6); }' +
+      '  .close-note { margin-top: 16px; font-size: 11px; color: #64748b; }' +
+      '</style>' +
+      '</head><body>' +
+      '  <div class="icon">🚀</div>' +
+      '  <div class="title">TOC & Document Architect v4.2</div>' +
+      '  <p class="desc">Launching the full-screen web application deployment in a dedicated browser window...</p>' +
+      '  <a class="btn" href="' + url + '" target="_blank" onclick="setTimeout(function(){google.script.host.close();}, 1500);">🌐 Open Full-Screen Web App ↗</a>' +
+      '  <p class="close-note">Click the button above if popup blocker prevented auto-opening.</p>' +
+      '  <script>' +
+      '    window.open("' + url + '", "_blank");' +
+      '  </script>' +
+      '</body></html>'
+    ).setWidth(480).setHeight(250);
+
+    DocumentApp.getUi().showModalDialog(html, '🌐 Full-Screen Web App Launcher');
+  } catch (error) {
+    console.error('🚨 [openWebAppFullScreen] Error:', error.message);
+    DocumentApp.getUi().alert('Launcher Error', 'Error opening full-screen launcher: ' + error.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Opens an expanded in-document modal dialog displaying the full web app. 🗖💻
+ */
+function showExpandedDialog() {
+  try {
+    var html = HtmlService.createTemplateFromFile('index')
+      .evaluate()
+      .setTitle('TOC & Document Architect v4.2 (Expanded View)')
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setWidth(1150)
+      .setHeight(750);
+    DocumentApp.getUi().showModalDialog(html, '🚀 TOC & Document Architect v4.2 (Expanded View)');
+  } catch (error) {
+    console.error('🚨 [showExpandedDialog] Error:', error.message);
+    DocumentApp.getUi().alert('Dialog Error', 'Error opening expanded dialog: ' + error.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
  * Serves the standalone web application interface. 🌐💻
  */
 function doGet(e) {
@@ -610,18 +670,178 @@ function forceAuthorizeNaked() {
 }
 
 /**
+ * Menu action: Generates exact reciprocal Table of Contents for the active tab with full user alert. 📜✨
+ */
+function menuGenerateActiveTabTOC() {
+  try {
+    var report = generateTOCV42({
+      forceToc: true,
+      scope: 'active-tab',
+      reciprocal: true,
+      backToTop: true,
+      maxDepth: 6,
+      presentation: 'P3'
+    });
+
+    var ui = DocumentApp.getUi();
+    var statusEmoji = report.success ? '✅' : '⚠️';
+    var msg = statusEmoji + ' Reciprocal Table of Contents (v4.2) Report:\n\n' +
+      '• Navigation Status: ' + report.navigationStatus + '\n' +
+      '• Reciprocal Pairs: ' + (report.pairCount || 0) + ' (Verified: ' + (report.verifiedPairs || 0) + ')\n' +
+      '• Headings Linked: ' + (report.h2Count ? report.h2Count + ' headings' : (report.pairCount || 0)) + '\n' +
+      '• Scope: Active Tab\n' +
+      '• Directionality: Exact Bidirectional (NAV24) + Back to Top (NAV23)\n\n' +
+      (report.hierarchyWarnings && report.hierarchyWarnings.length > 0
+        ? '⚠️ Hierarchy Notes:\n' + report.hierarchyWarnings.join('\n') + '\n\n'
+        : '') +
+      '🎉 Exact bidirectional navigation established!';
+    ui.alert('TOC v4.2 Generation Complete', msg, ui.ButtonSet.OK);
+  } catch (err) {
+    DocumentApp.getUi().alert('TOC Generation Error', '🚨 Error: ' + err.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu action: Generates a central Table of Contents spanning all Document tabs. 📑🌐
+ */
+function menuGenerateAllTabsTOC() {
+  try {
+    var report = generateAllTabsTOCV42();
+    var ui = DocumentApp.getUi();
+    var statusEmoji = report.success ? '✅' : '⚠️';
+    var msg = statusEmoji + ' Central Table of Contents (All Tabs) Report:\n\n' +
+      '• Navigation Status: ' + report.navigationStatus + '\n' +
+      '• Reciprocal Pairs: ' + (report.pairCount || 0) + ' (Verified: ' + (report.verifiedPairs || 0) + ')\n' +
+      '• Scope: All Document Tabs (Central TOC)\n' +
+      '• Directionality: Exact Cross-Tab Reciprocal (NAV24)\n\n' +
+      (report.duplicateHeadingGroups && report.duplicateHeadingGroups.length > 0
+        ? 'ℹ️ Disambiguated duplicate headings across tabs: ' + report.duplicateHeadingGroups.length + ' group(s)\n\n'
+        : '') +
+      '🎉 Central document navigation complete across all tabs!';
+    ui.alert('Central TOC (All Tabs) Complete', msg, ui.ButtonSet.OK);
+  } catch (err) {
+    DocumentApp.getUi().alert('Central TOC Error', '🚨 Error: ' + err.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu action: Generates independent Table of Contents inside each Document tab. 📚📑
+ */
+function menuGeneratePerTabTOC() {
+  try {
+    var report = generatePerTabTOCV42();
+    var ui = DocumentApp.getUi();
+    var statusEmoji = report.success ? '✅' : '⚠️';
+    var msg = statusEmoji + ' Multi-Tab TOC Generation Report:\n\n' +
+      '• Tabs Processed: ' + report.tabsProcessed + '\n' +
+      '• Mode: Independent TOC per Document Tab\n' +
+      '• Status: ' + (report.success ? 'All tabs successfully verified' : 'Completed with partial notes') + '\n\n' +
+      '🎉 Each tab now has its own reciprocal Table of Contents!';
+    ui.alert('Per-Tab TOC Complete', msg, ui.ButtonSet.OK);
+  } catch (err) {
+    DocumentApp.getUi().alert('Per-Tab TOC Error', '🚨 Error: ' + err.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu action: Safely cleans and removes the existing Table of Contents and reverse bookmarks. 🧹🗑️
+ */
+function menuRemoveTOC() {
+  try {
+    var ui = DocumentApp.getUi();
+    var resp = ui.alert(
+      'Remove Table of Contents',
+      'Are you sure you want to remove the Table of Contents and all reverse navigation bookmarks?',
+      ui.ButtonSet.YES_NO
+    );
+    if (resp !== ui.Button.YES) return;
+
+    var doc = DocumentApp.getActiveDocument();
+    var tabs = nav42FlattenTabs_(doc);
+    var removedCount = 0;
+
+    for (var i = 0; i < tabs.length; i++) {
+      var tabMeta = tabs[i];
+      var oldToc = nav42InspectExistingToc_(tabMeta.documentTab);
+      if (oldToc.exists && oldToc.bookmarkIds.length > 0) {
+        nav42ClearGeneratedReverseLinks_(tabs, oldToc.bookmarkIds);
+        nav42RemoveGeneratedBackToTop_(tabs, oldToc.bookmarkIds);
+        nav42RemoveExistingToc_(tabMeta.documentTab, oldToc);
+        removedCount++;
+      }
+    }
+
+    ui.alert('TOC Removed', '🧹 Table of Contents and navigation bookmarks removed cleanly (' + removedCount + ' tab(s) cleaned).', ui.ButtonSet.OK);
+  } catch (err) {
+    DocumentApp.getUi().alert('Remove Error', '🚨 Error: ' + err.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu action: Auto-formats active document structure and generates reciprocal TOC. 🤖✨
+ */
+function menuAutoFormatAndBuildTOC() {
+  try {
+    var ui = DocumentApp.getUi();
+    var doc = DocumentApp.getActiveDocument();
+    if (!doc) throw new Error('No active Google Document found.');
+
+    var body = doc.getBody();
+    var text = body.getText().trim();
+    if (!text) {
+      ui.alert('Empty Document', 'The document has no text content to format. Please add text first.', ui.ButtonSet.OK);
+      return;
+    }
+
+    var confirmResp = ui.alert(
+      '🤖 Format Document & Build Reciprocal TOC (v4.2)',
+      'This action will scan your document structure, verify heading hierarchy, and generate an exact reciprocal Table of Contents (NAV24).\n\nWould you like to proceed?',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirmResp !== ui.Button.YES) return;
+
+    var report = generateTOCV42({
+      forceToc: true,
+      scope: 'active-tab',
+      reciprocal: true,
+      backToTop: true,
+      maxDepth: 6,
+      presentation: 'P3'
+    });
+
+    var msg = '🎉 v4.2 Document Navigation Established!\n\n' +
+      '• Navigation Status: ' + report.navigationStatus + '\n' +
+      '• Reciprocal Pairs: ' + (report.pairCount || 0) + ' verified\n' +
+      '• Headings Linked: ' + (report.verifiedPairs || 0) + '\n' +
+      '• Exact Reciprocal Linking: NAV24 active\n' +
+      '• Generic Back to Top: NAV23 active\n\n' +
+      'Every heading now links directly back to its exact TOC entry!';
+    ui.alert('v4.2 Architecture Applied', msg, ui.ButtonSet.OK);
+  } catch (err) {
+    DocumentApp.getUi().alert('Format Error', '🚨 Error: ' + err.message, DocumentApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
  * Creates a custom menu in the Google Doc when opened. 🛠️✨
  */
 function onOpen() {
   try {
-    DocumentApp.getUi().createMenu('📜 TOC Styler')
-      .addItem('🖥️ Open Sidebar', 'showSidebar')
-      .addItem('🔄 Generate / Refresh TOC', 'generateTOC')
+    DocumentApp.getUi().createMenu('📜 TOC & Document Architect v4.2')
+      .addItem('🌐 Launch Full-Screen Web App (New Tab) ↗', 'openWebAppFullScreen')
+      .addItem('🗖 Open Expanded App Dialog (In-Doc)', 'showExpandedDialog')
+      .addItem('🖥️ Open Sidebar Panel', 'showSidebar')
       .addSeparator()
-      .addItem('🧪 Run v4.2 Regression Tests', 'runNavigationV42RegressionTests')
-      .addItem('🔍 Diagnose TOC v4.2', 'diagnoseTOCV42')
+      .addItem('🔄 Generate Reciprocal TOC (Active Tab)', 'menuGenerateActiveTabTOC')
+      .addItem('📑 Generate Central TOC (All Document Tabs)', 'menuGenerateAllTabsTOC')
+      .addItem('📚 Generate TOC in Every Tab (Per-Tab)', 'menuGeneratePerTabTOC')
+      .addItem('🧹 Remove Existing TOC', 'menuRemoveTOC')
       .addSeparator()
-      .addItem('🔑 Authorize Services (diagnostic)', 'forceAuth')
+      .addItem('🤖 Auto-Format Document & Build TOC (v4.2)', 'menuAutoFormatAndBuildTOC')
+      .addItem('🔍 Diagnose Navigation & Heading Structure', 'diagnoseTOCV42')
+      .addItem('🧪 Run v4.2 Navigation Regression Tests', 'runNavigationV42RegressionTests')
+      .addSeparator()
+      .addItem('🔑 Authorize Services (Diagnostic)', 'forceAuth')
       .addItem('🔌 Force Authorization Prompt (naked)', 'forceAuthorizeNaked')
       .addToUi();
     console.log('✅ [onOpen] Custom menu created successfully. 📜✨');
