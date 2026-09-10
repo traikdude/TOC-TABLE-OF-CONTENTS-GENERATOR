@@ -36,33 +36,31 @@ function showSidebar() {
 function openWebAppFullScreen() {
   try {
     var url = getServiceUrl();
-    if (!url) {
-      url = 'https://script.google.com/macros/s/' + ScriptApp.getScriptId() + '/exec';
-    }
 
     var html = HtmlService.createHtmlOutput(
       '<!DOCTYPE html><html><head><base target="_blank">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<style>' +
-      '  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 24px; background: #0f172a; color: #f8fafc; margin: 0; box-sizing: border-box; }' +
-      '  .icon { font-size: 36px; margin-bottom: 8px; }' +
-      '  .title { font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #60a5fa; letter-spacing: -0.02em; }' +
-      '  .desc { font-size: 13px; color: #94a3b8; margin-bottom: 22px; line-height: 1.5; max-width: 380px; margin-left: auto; margin-right: auto; }' +
-      '  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff !important; padding: 13px 26px; border-radius: 12px; font-weight: 700; text-decoration: none !important; font-size: 15px; box-shadow: 0 10px 15px -3px rgba(37,99,235,0.4); transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }' +
+      '  * { box-sizing: border-box; }' +
+      '  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 22px 20px; background: #0f172a; color: #f8fafc; margin: 0; overflow: hidden; }' +
+      '  .icon { font-size: 34px; margin-bottom: 6px; }' +
+      '  .title { font-size: 17px; font-weight: 800; margin-bottom: 6px; color: #60a5fa; letter-spacing: -0.02em; }' +
+      '  .desc { font-size: 12px; color: #94a3b8; margin-bottom: 18px; line-height: 1.5; max-width: 380px; margin-left: auto; margin-right: auto; }' +
+      '  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff !important; padding: 12px 26px; border-radius: 12px; font-weight: 700; text-decoration: none !important; font-size: 14px; box-shadow: 0 10px 15px -3px rgba(37,99,235,0.4); transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }' +
       '  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 20px -3px rgba(37,99,235,0.6); }' +
-      '  .close-note { margin-top: 16px; font-size: 11px; color: #64748b; }' +
+      '  .close-note { margin-top: 14px; font-size: 11px; color: #64748b; }' +
       '</style>' +
       '</head><body>' +
       '  <div class="icon">🚀</div>' +
       '  <div class="title">TOC & Document Architect v4.2</div>' +
-      '  <p class="desc">Launching the full-screen web application deployment in a dedicated browser window...</p>' +
+      '  <p class="desc">Launching the verified full-screen web application in a dedicated browser window...</p>' +
       '  <a class="btn" href="' + url + '" target="_blank" onclick="setTimeout(function(){google.script.host.close();}, 1500);">🌐 Open Full-Screen Web App ↗</a>' +
       '  <p class="close-note">Click the button above if popup blocker prevented auto-opening.</p>' +
       '  <script>' +
       '    window.open("' + url + '", "_blank");' +
       '  </script>' +
       '</body></html>'
-    ).setWidth(480).setHeight(250);
+    ).setWidth(500).setHeight(270);
 
     DocumentApp.getUi().showModalDialog(html, '🌐 Full-Screen Web App Launcher');
   } catch (error) {
@@ -852,16 +850,34 @@ function onOpen() {
 
 
 /**
- * Returns the web app service URL. 🔌💻
+ * Canonical verified production Web App deployment ID (v16).
+ */
+var CANONICAL_WEBAPP_DEPLOYMENT_ID = 'AKfycbxIuWySjvgSgZdVOSXf0_4suf3Klz00xVup-_0_nfYdc8idL7Ba6zR1P3767QoGonhC';
+
+/**
+ * Returns the web app service URL, prioritizing the active verified deployment ID. 🔌💻
  */
 function getServiceUrl() {
   console.log('🔌 [getServiceUrl] Fetching service URL. 🔌✨');
   try {
-    return ScriptApp.getService().getUrl();
+    var customId = PropertiesService.getScriptProperties().getProperty('WEBAPP_DEPLOYMENT_ID');
+    if (customId && customId.trim()) {
+      return 'https://script.google.com/macros/s/' + customId.trim() + '/exec';
+    }
+
+    if (CANONICAL_WEBAPP_DEPLOYMENT_ID) {
+      return 'https://script.google.com/macros/s/' + CANONICAL_WEBAPP_DEPLOYMENT_ID + '/exec';
+    }
+
+    var serviceUrl = ScriptApp.getService().getUrl();
+    if (serviceUrl && serviceUrl.indexOf('macros/s/') !== -1) {
+      return serviceUrl;
+    }
   } catch (err) {
     console.error('🚨 [getServiceUrl] Error:', err.message);
-    return '';
   }
+
+  return 'https://script.google.com/macros/s/' + CANONICAL_WEBAPP_DEPLOYMENT_ID + '/exec';
 }
 
 /**
