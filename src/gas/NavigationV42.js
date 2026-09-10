@@ -311,7 +311,7 @@ function diagnoseTOCV42() {
     });
   }
 
-  return {
+  const diag = {
     documentId: doc.getId(),
     documentName: doc.getName(),
     tabCount: tabs.length,
@@ -319,6 +319,25 @@ function diagnoseTOCV42() {
     totalBookmarks,
     tabs: perTab
   };
+
+  Logger.log('🔍 [diagnoseTOCV42] Report: ' + JSON.stringify(diag));
+
+  try {
+    const ui = DocumentApp.getUi();
+    if (ui) {
+      const msg = '🔍 TOC v4.2 Diagnostic Report:\n\n' +
+        '📄 Document: ' + diag.documentName + '\n' +
+        '📑 Total Tabs: ' + diag.tabCount + '\n' +
+        '🔖 Total Bookmarks: ' + diag.totalBookmarks + '\n' +
+        '📌 Total Headings: ' + diag.totalHeadings + '\n\n' +
+        perTab.map(t => '• [' + t.title + ']: ' + t.headings + ' headings (H2: ' + t.h2 + ', valid hierarchy: ' + t.hierarchyValid + ')').join('\n');
+      ui.alert('TOC v4.2 Diagnostic', msg, ui.ButtonSet.OK);
+    }
+  } catch (uiErr) {
+    // Silent in headless / non-UI contexts
+  }
+
+  return diag;
 }
 
 /* -------------------------------------------------------------------------- */

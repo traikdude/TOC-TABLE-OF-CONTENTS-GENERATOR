@@ -31,11 +31,28 @@ function runNavigationV42RegressionTests() {
     }
   }
 
-  return {
+  const summary = {
     passed: results.filter(r => r.pass).length,
     failed: results.filter(r => !r.pass).length,
     results
   };
+
+  Logger.log('🧪 [runNavigationV42RegressionTests] Completed: ' + JSON.stringify(summary));
+
+  try {
+    const ui = DocumentApp.getUi();
+    if (ui) {
+      const msg = '🧪 v4.2 Navigation Regression Tests:\n\n' +
+        '✅ Passed: ' + summary.passed + '\n' +
+        '❌ Failed: ' + summary.failed + '\n\n' +
+        results.map(r => (r.pass ? '✅ ' : '❌ ') + r.name + (r.error ? ': ' + r.error : '')).join('\n');
+      ui.alert('v4.2 Test Results', msg, ui.ButtonSet.OK);
+    }
+  } catch (uiErr) {
+    // Silent in headless / non-UI contexts
+  }
+
+  return summary;
 }
 
 function nav42TestExactReciprocal_() {
