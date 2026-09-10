@@ -73,10 +73,13 @@ export default function App() {
   const [isImporting, setIsImporting] = useState(false);
   const [docSource, setDocSource] = useState('');
 
-  // Presets State
-  const [activePreset, setActivePreset] = useState<'smart' | 'expert' | 'training'>('smart');
+  // Presets & Navigation State (v4.2)
+  const [activePreset, setActivePreset] = useState<'smart' | 'expert' | 'training' | 'hybrid'>('smart');
   const [applyNumbering, setApplyNumbering] = useState(true);
   const [refineLanguage, setRefineLanguage] = useState(false);
+  const [navigationScope, setNavigationScope] = useState<'active-tab' | 'all-tabs-central'>('active-tab');
+  const [reciprocalNavigation, setReciprocalNavigation] = useState(true);
+  const [backToTop, setBackToTop] = useState(true);
 
   // Session History State
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -144,7 +147,7 @@ export default function App() {
 
   // Compute Health Metrics whenever sections or input changes
   useEffect(() => {
-    let currentErrors = 0;
+    const currentErrors = 0;
     let currentWarnings = 0;
     const details: string[] = [];
     
@@ -387,7 +390,12 @@ export default function App() {
           })
           .writeStructuredDoc(activeSecs, {
             applyNumbering: applyNumbering,
-            refineLanguage: refineLanguage
+            refineLanguage: refineLanguage,
+            scope: navigationScope,
+            reciprocal: reciprocalNavigation,
+            backToTop: backToTop,
+            maxDepth: 6,
+            presentation: 'P3'
           });
       });
 
@@ -440,7 +448,12 @@ export default function App() {
           })
           .exportToNewDoc(activeSecs, docTitle, {
             applyNumbering: applyNumbering,
-            refineLanguage: refineLanguage
+            refineLanguage: refineLanguage,
+            scope: navigationScope,
+            reciprocal: reciprocalNavigation,
+            backToTop: backToTop,
+            maxDepth: 6,
+            presentation: 'P3'
           });
       });
 
@@ -816,6 +829,60 @@ export default function App() {
                 >
                   Training
                 </button>
+                <button
+                  onClick={() => setActivePreset('hybrid')}
+                  className={cn(
+                    "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all",
+                    activePreset === 'hybrid' ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-white" : "text-slate-550"
+                  )}
+                >
+                  Hybrid
+                </button>
+              </div>
+
+              {/* v4.2 Navigation Controls */}
+              <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-xl text-[10px] font-bold">
+                <span className="text-slate-400 dark:text-slate-500 px-1 text-[9px] uppercase tracking-wider font-extrabold">Nav:</span>
+                <button
+                  type="button"
+                  onClick={() => setNavigationScope('active-tab')}
+                  className={cn(
+                    "px-2 py-0.5 rounded-md transition-all",
+                    navigationScope === 'active-tab' ? "bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-white" : "text-slate-500 hover:text-slate-700"
+                  )}
+                  title="Generate TOC for the currently active tab"
+                >
+                  Active Tab
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNavigationScope('all-tabs-central')}
+                  className={cn(
+                    "px-2 py-0.5 rounded-md transition-all",
+                    navigationScope === 'all-tabs-central' ? "bg-white dark:bg-slate-700 shadow-xs text-blue-600 dark:text-white" : "text-slate-500 hover:text-slate-700"
+                  )}
+                  title="Central TOC across all Document tabs"
+                >
+                  All Tabs (Central)
+                </button>
+                <label className="flex items-center gap-1 px-1.5 border-l border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-pointer" title="Bidirectional exact linking between TOC entry and heading">
+                  <input
+                    type="checkbox"
+                    checked={reciprocalNavigation}
+                    onChange={(e) => setReciprocalNavigation(e.target.checked)}
+                    className="rounded text-blue-600 cursor-pointer"
+                  />
+                  <span>Reciprocal (NAV24)</span>
+                </label>
+                <label className="flex items-center gap-1 px-1 text-slate-600 dark:text-slate-400 cursor-pointer" title="Include ▲ Back to Top navigation">
+                  <input
+                    type="checkbox"
+                    checked={backToTop}
+                    onChange={(e) => setBackToTop(e.target.checked)}
+                    className="rounded text-blue-600 cursor-pointer"
+                  />
+                  <span>Back to Top</span>
+                </label>
               </div>
 
               {activePreset === 'expert' && (
@@ -840,6 +907,7 @@ export default function App() {
                   </label>
                 </div>
               )}
+
             </div>
           </div>
 

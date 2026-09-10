@@ -390,7 +390,7 @@ function analyzeInput(input: string) {
   const wordCount = words.length;
   const naturalSections = Math.max(
     1,
-    (text.match(/(^|\n)(#{1,6}\s+|\d+[\.\)]\s+|[A-Z][A-Z0-9 &/-]{4,}\n)/g) || []).length
+    (text.match(/(^|\n)(#{1,6}\s+|\d+[.)]\s+|[A-Z][A-Z0-9 &/-]{4,}\n)/g) || []).length
   );
 
   const lower = text.toLowerCase();

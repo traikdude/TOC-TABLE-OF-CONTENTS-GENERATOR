@@ -16,7 +16,7 @@ jobs:
     - name: 🟢 Setup Node.js Environment
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: 📦 Install Workspace Dependencies
@@ -24,6 +24,12 @@ jobs:
       
     - name: 🔍 ESLint Validation Check
       run: npm run lint
+
+    - name: 🏗️ Build Frontend Bundle
+      run: npm run build
+
+    - name: 📦 Package Google Apps Script Bundle
+      run: node build-gas.js
       
     - name: 🔐 Configure Google Clasp Credentials
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -33,8 +39,8 @@ jobs:
         
     - name: 🚀 Push Source to Google Apps Script
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: clasp push --force
+      run: npx @google/clasp push --force
       
     - name: 🌐 Deploy Production Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: clasp deploy --description "Automated Release $(date +'%Y-%m-%d %H:%M:%S')"
+      run: npx @google/clasp deploy --description "Automated Release $(date +'%Y-%m-%d %H:%M:%S')"
