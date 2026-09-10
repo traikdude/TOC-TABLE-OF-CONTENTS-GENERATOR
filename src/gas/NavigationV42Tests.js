@@ -14,7 +14,8 @@ function runNavigationV42RegressionTests() {
   const tests = [
     nav42TestExactReciprocal_,
     nav42TestDuplicateHeadings_,
-    nav42TestIdempotentRebuild_
+    nav42TestIdempotentRebuild_,
+    nav42TestCanonicalBookmarkUrlFormat_
   ];
 
   const results = [];
@@ -180,6 +181,61 @@ function nav42TestIdempotentRebuild_() {
       pass: true,
       pairCount: second.pairCount,
       bookmarkCount: secondBookmarkCount
+    };
+  });
+}
+
+function nav42TestCanonicalBookmarkUrlFormat_() {
+  return nav42WithScratchDoc_('V42 TEST - Canonical URLs', function(doc, tabMeta) {
+    const body = tabMeta.documentTab.getBody();
+    nav42TestClearBody_(body);
+    nav42TestAppendHeading_(body, 'Canonical Test Section', 1);
+    body.appendParagraph('Section body.');
+
+    const result = rebuildNavigationForDocumentV42(doc, {
+      forceToc: true,
+      targetTabId: tabMeta.tab.getId(),
+      scope: 'active-tab',
+      reciprocal: true,
+      backToTop: true
+    });
+
+    nav42Assert_(result.pairs.length === 1, 'Expected 1 reciprocal pair.');
+    const pair = result.pairs[0];
+    const docId = doc.getId();
+
+    const expectedPrefix = 'https://docs.google.com/document/d/' + docId + '/edit';
+    nav42Assert_(
+      pair.forwardDestination.indexOf(expectedPrefix) === 0,
+      'Forward URL does not use canonical /document/d/{id}/edit prefix: ' + pair.forwardDestination
+    );
+    nav42Assert_(
+      pair.forwardDestination.indexOf('#bookmark=') !== -1,
+      'Forward URL missing bookmark hash: ' + pair.forwardDestination
+    );
+    nav42Assert_(
+      !nav42IsMalformedOpenUrl_(pair.forwardDestination),
+      'Forward URL contains malformed /open: ' + pair.forwardDestination
+    );
+
+    nav42Assert_(
+      pair.reverseDestination.indexOf(expectedPrefix) === 0,
+      'Reverse URL does not use canonical /document/d/{id}/edit prefix: ' + pair.reverseDestination
+    );
+    nav42Assert_(
+      pair.reverseDestination.indexOf('#bookmark=') !== -1,
+      'Reverse URL missing bookmark hash: ' + pair.reverseDestination
+    );
+    nav42Assert_(
+      !nav42IsMalformedOpenUrl_(pair.reverseDestination),
+      'Reverse URL contains malformed /open: ' + pair.reverseDestination
+    );
+
+    return {
+      name: 'canonical Google Docs bookmark URL validation',
+      pass: true,
+      forwardDestination: pair.forwardDestination,
+      reverseDestination: pair.reverseDestination
     };
   });
 }

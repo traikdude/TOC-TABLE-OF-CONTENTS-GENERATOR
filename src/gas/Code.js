@@ -222,7 +222,7 @@ function writeStructuredDoc(sections, options) {
     
     return {
       success: !!(navReport && navReport.success),
-      url: doc.getUrl(),
+      url: 'https://docs.google.com/document/d/' + doc.getId() + '/edit',
       count: sections.length,
       navigation: navReport
     };
@@ -262,7 +262,7 @@ function exportToNewDoc(sections, title, options) {
     // 1. Create a new Google Doc
     var doc = DocumentApp.create(title || 'Structured Outline');
     var docId = doc.getId();
-    var docUrl = doc.getUrl();
+    var docUrl = 'https://docs.google.com/document/d/' + docId + '/edit';
     
     // 2. Locate the target folder in Google Drive
     var folderId = '1Ivm9x5foCn6athVRA-9xB3FugIjTEjS6';
@@ -322,7 +322,7 @@ function writeSectionsToDoc(doc, sections, options) {
   tempPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
   
   var headingsMeta = [];
-  var docUrl = doc.getUrl();
+  var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
   
   // Step 1: Insert Table of Contents Placeholder at the top
   var tocHeader = body.appendParagraph('TABLE OF CONTENTS');

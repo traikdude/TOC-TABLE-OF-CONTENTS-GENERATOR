@@ -118,7 +118,7 @@ function nav42ReadAllTabs_(doc, tabs) {
     })),
     allTabs: true,
     wordCount: totalWords,
-    url: doc.getUrl()
+    url: 'https://docs.google.com/document/d/' + doc.getId() + '/edit'
   };
 }
 
@@ -140,7 +140,7 @@ function nav42ReadOneTab_(doc, selected, allTabs) {
     selectedTabPath: selected.path,
     allTabs: false,
     wordCount: nav42WordCount_(text),
-    url: doc.getUrl()
+    url: 'https://docs.google.com/document/d/' + doc.getId() + '/edit'
   };
 }
 
