@@ -126,7 +126,8 @@ function insertTOC(doc, entries) {
 
 ## **index.html**
 
-l\<\!DOCTYPE html\>\<html\>  
+```html
+\<\!DOCTYPE html\>\<html\>
   \<head\>  
     \<base target="\_top"\>  
     \<style\>  
@@ -183,7 +184,7 @@ l\<\!DOCTYPE html\>\<html\>
 }  
   \</body\>  
 \</html\>  
-\`\`\`
+```
 
 ## **monitoring.gs**
 
