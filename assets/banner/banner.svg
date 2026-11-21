@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="title desc">
+<title id="title">Return to the index</title><desc id="desc">A contents row and its heading on a tabbed folio are joined by two arrows.</desc>
+<defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.4" fill="#547488"/></pattern></defs>
+<rect width="1280" height="640" fill="#132b3b"/><rect width="1280" height="640" fill="url(#grid)"/>
+<path d="M110 102 Q380 63 626 119 Q852 69 1140 100 V534 Q840 521 626 572 Q389 527 110 557Z" fill="#091923" stroke="#cda86e" stroke-width="6"/>
+<path d="M133 86 Q400 61 626 109 V546 Q382 496 133 531Z" fill="#f8e5c1"/>
+<path d="M637 109 Q877 60 1121 88 V517 Q880 493 637 546Z" fill="#fff1d7"/>
+<path d="M1121 127h34v69h-34" fill="#f0784e"/><path d="M1121 211h44v69h-44" fill="#2da398"/><path d="M1121 295h34v69h-34" fill="#e4ab48"/>
+<rect x="170" y="254" width="350" height="63" rx="8" fill="#a9d8c8"/>
+<g stroke="#223e4b" stroke-width="13" stroke-linecap="round"><path d="M195 162h187m-164 52h109m-92 72h186m-203 67h138m-161 55h172"/><path d="M772 184h236m-246 100h274m-274 44h220m-220 44h253m-253 44h169"/></g>
+<g fill="none" stroke-width="12" stroke-linecap="round"><path d="M470 269Q608 161 730 176m-20-20 23 21-28 14" stroke="#c85331"/><path d="M731 200Q611 328 470 300m21-13-24 13 19 20" stroke="#13796f"/></g>
+</svg>
